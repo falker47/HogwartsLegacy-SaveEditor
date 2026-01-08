@@ -1,0 +1,1 @@
+The ultimate Save Editor & Manager for Hogwarts Legacy. Automatically detects your saves and the required DLL. Features an integrated editor (no website uploads needed!), automatic backups, and a modern GUI. Just open, edit, and play!
