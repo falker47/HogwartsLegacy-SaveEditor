@@ -1,4 +1,4 @@
-# Credits
+# Hogwarts Legacy Save Editor & Manager - Credits
 
 ## 🧙 Developer
 

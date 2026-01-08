@@ -52,13 +52,13 @@ pywebview>=4.0.0
 1. Download the latest release from [Releases](../../releases)
 2. Extract to a folder
 3. Add the required files listed above
-4. Run `HL_Save_Manager.exe`
+4. Run `HogwartsLegacy-SaveEditor.exe`
 
 ### Option 2: Run from Source
 ```bash
 # Clone the repository
-git clone https://github.com/falker47/HL_Save_Manager.git
-cd HL_Save_Manager
+git clone https://github.com/falker47/HogwartsLegacy-SaveEditor.git
+cd HogwartsLegacy-SaveEditor
 
 # Install dependencies
 pip install -r requirements.txt
@@ -89,12 +89,12 @@ build.bat
 ## 📁 File Structure
 
 ```
-HL_Save_Manager/
-├── HL_Save_Manager.exe    # Main application
-├── hlsaves.exe            # Compression tool (required)
-├── HLSGE.html             # Save editor (required)
-├── oo2core_9_win64.dll    # From game (required)
-└── Backups/               # Created automatically
+HogwartsLegacy-SaveEditor/
+├── HogwartsLegacy-SaveEditor.exe  # Main application
+├── hlsaves.exe                    # Compression tool (required)
+├── HLSGE.html                     # Save editor (required)
+├── oo2core_9_win64.dll            # From game (required)
+└── Backups/                       # Created automatically
 ```
 
 ## 🎮 Where Are My Saves?

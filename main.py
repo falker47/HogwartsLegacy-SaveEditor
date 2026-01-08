@@ -227,7 +227,7 @@ class App(BaseWindow):
     def __init__(self):
         super().__init__()
         
-        self.title("Hogwarts Legacy Save Manager")
+        self.title("Hogwarts Legacy Save Editor & Manager")
         
         # Position on left half of screen
         self.update_idletasks()

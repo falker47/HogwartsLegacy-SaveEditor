@@ -1,6 +1,6 @@
 @echo off
 echo ================================================
-echo   Hogwarts Legacy Save Manager - Release Builder
+echo   Hogwarts Legacy Save Editor - Release Builder
 echo ================================================
 echo.
 
@@ -36,14 +36,14 @@ if "%TKDND_PATH%"=="" (
 :: Build executable
 echo [3/5] Building executable...
 pyinstaller --onefile --windowed ^
-    --name "HL_Save_Manager" ^
+    --name "HogwartsLegacy-SaveEditor" ^
     %TKDND_ARGS% ^
     --hidden-import=webview ^
     --hidden-import=webview.platforms.edgechromium ^
     --hidden-import=clr ^
     main.py >nul 2>&1
 
-if not exist dist\HL_Save_Manager.exe (
+if not exist dist\HogwartsLegacy-SaveEditor.exe (
     echo ERROR: Build failed!
     pause
     exit /b 1
@@ -51,7 +51,7 @@ if not exist dist\HL_Save_Manager.exe (
 
 :: Copy files to release folder
 echo [4/5] Preparing release package...
-copy /Y dist\HL_Save_Manager.exe %RELEASE_DIR%\ >nul
+copy /Y dist\HogwartsLegacy-SaveEditor.exe %RELEASE_DIR%\ >nul
 copy /Y HLSGE.html %RELEASE_DIR%\ >nul 2>&1
 copy /Y hlsaves.exe %RELEASE_DIR%\ >nul 2>&1
 
@@ -59,7 +59,7 @@ copy /Y hlsaves.exe %RELEASE_DIR%\ >nul 2>&1
 echo [5/5] Creating README...
 (
 echo ============================================
-echo   HOGWARTS LEGACY SAVE MANAGER v1.5
+echo   HOGWARTS LEGACY SAVE EDITOR v1.5
 echo   by falker47
 echo ============================================
 echo.
@@ -68,7 +68,7 @@ echo.
 echo 1. Copy oo2core_9_win64.dll to this folder
 echo    ^(Find it in: [Game]\Engine\Binaries\ThirdParty\Oodle\Win64\^)
 echo.
-echo 2. Run HL_Save_Manager.exe
+echo 2. Run HogwartsLegacy-SaveEditor.exe
 echo.
 echo 3. Select a save file and click "Edit Save File"
 echo.
@@ -80,7 +80,7 @@ echo ============================================
 echo   REQUIRED FILES
 echo ============================================
 echo.
-echo [x] HL_Save_Manager.exe - This app
+echo [x] HogwartsLegacy-SaveEditor.exe - This app
 echo [x] HLSGE.html - Save editor
 echo [x] hlsaves.exe - Compression tool
 echo [ ] oo2core_9_win64.dll - YOU MUST ADD THIS!
