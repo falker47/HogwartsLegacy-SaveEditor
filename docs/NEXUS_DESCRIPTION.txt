@@ -1,0 +1,50 @@
+[size=5][b]Hogwarts Legacy Save Editor & Manager v1.0[/b][/size]
+[img]Insert Banner Image Here if you have one[/img]
+
+[b]The ultimate all-in-one tool for managing and editing your Hogwarts Legacy saves.[/b]
+No more uploading files to websites. No more hex editing. Just open the app, click, and edit.
+
+[line]
+
+[size=4][b]✨ FEATURES[/b][/size]
+[list]
+[*]🚀 [b]Start & Go:[/b] Automatically detects your save files. No configuration needed.
+[*]🌐 [b]Integrated Editor:[/b] Uses the famous [i]Hhogwarts Legacy Save Game Editor[/i] embedded directly in the app.
+[*]🔮 [b]Smart Auto-Discovery:[/b] Automatically finds the required [code]oo2core_9_win64.dll[/code] from your installed games (Hogwarts Legacy, FC26, etc.).
+[*]📦 [b]Automatic Backups:[/b] Every time you edit, a backup is created instantly. Never lose progress.
+[*]🎨 [b]Modern UI:[/b] sleek Dark Mode interface powered by CustomTkinter.
+[/list]
+
+[line]
+
+[size=4][b]📥 INSTALLATION[/b][/size]
+1. Download the Main File.
+2. Extract the archive to a folder of your choice.
+3. Run [b]HogwartsLegacy-SaveEditor.exe[/b].
+4. [b]Enjoy![/b] The app will try to auto-find the required DLL file.
+
+[b]⚠️ If the DLL is missing:[/b]
+The app will show a popup asking if you want to download it. Click [b]YES[/b] to go to the Modding Wiki page, download [code]oo2core_9_win64.dll[/code], and put it in the app folder.
+
+[line]
+
+[size=4][b]🛠️ HOW TO USE[/b][/size]
+1. Open the app.
+2. Select a save slot from the list on the left.
+3. Click [b]Edit Save File[/b].
+4. The editor will open on the right. Modify your money, inventory, talents, etc.
+5. Click [b]Download[/b] inside the editor.
+6. The app automatically injects the changes back into your game save.
+7. Launch the game!
+
+[line]
+
+[size=4][b]📜 CREDITS[/b][/size]
+[list]
+[*]Developed by [b]falker47[/b]
+[*]Save Compression Tool: [url=https://www.nexusmods.com/hogwartslegacy/mods/1983]hlsaves[/url] by Katt
+[*]Save Editor Webapp: [url=https://www.nexusmods.com/hogwartslegacy/mods/77]HLSGE[/url] by ekaomk
+[*]GUI Framework: CustomTkinter
+[/list]
+
+[b]Open Source:[/b] [url=https://github.com/falker47/HogwartsLegacy-SaveEditor]GitHub Repository[/url]

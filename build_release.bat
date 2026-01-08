@@ -57,49 +57,64 @@ copy /Y hlsaves.exe %RELEASE_DIR%\ >nul 2>&1
 
 :: Create user README
 echo [5/5] Creating README...
-(
-echo ============================================
-echo   HOGWARTS LEGACY SAVE EDITOR v1.5
-echo   by falker47
-echo ============================================
-echo.
-echo QUICK START:
-echo.
-echo 1. Copy oo2core_9_win64.dll to this folder
-echo    ^(Find it in: [Game]\Engine\Binaries\ThirdParty\Oodle\Win64\^)
-echo.
-echo 2. Run HogwartsLegacy-SaveEditor.exe
-echo.
-echo 3. Select a save file and click "Edit Save File"
-echo.
-echo 4. Make your edits and click Download
-echo.
-echo 5. Done! Your save is updated automatically.
-echo.
-echo ============================================
-echo   REQUIRED FILES
-echo ============================================
-echo.
-echo [x] HogwartsLegacy-SaveEditor.exe - This app
-echo [x] HLSGE.html - Save editor
-echo [x] hlsaves.exe - Compression tool
-echo [ ] oo2core_9_win64.dll - YOU MUST ADD THIS!
-echo.
-echo NOTE: The DLL cannot be distributed. You must
-echo copy it from your Hogwarts Legacy installation.
-echo.
-echo ============================================
-echo   CREDITS
-echo ============================================
-echo.
-echo Developer: falker47
-echo.
-echo Special Thanks:
-echo - Katt ^(hlsaves.exe^) - MIT License
-echo - ekaomk ^(HLSGE Save Editor^)
-echo.
-echo ============================================
-) > %RELEASE_DIR%\README.txt
+echo ============================================ > %RELEASE_DIR%\README.txt
+echo   HOGWARTS LEGACY SAVE EDITOR v1.0 >> %RELEASE_DIR%\README.txt
+echo   by falker47 >> %RELEASE_DIR%\README.txt
+echo ============================================ >> %RELEASE_DIR%\README.txt
+echo. >> %RELEASE_DIR%\README.txt
+echo QUICK START: >> %RELEASE_DIR%\README.txt
+echo. >> %RELEASE_DIR%\README.txt
+echo 1. FIRST LAUNCH: >> %RELEASE_DIR%\README.txt
+echo    Double-click 'HogwartsLegacy-SaveEditor.exe'. >> %RELEASE_DIR%\README.txt
+echo    The app will try to AUTO-FIND 'oo2core_9_win64.dll'. >> %RELEASE_DIR%\README.txt
+echo    It scans all your Steam/Epic game libraries (e.g. FC26, Hogwarts Legacy). >> %RELEASE_DIR%\README.txt
+echo. >> %RELEASE_DIR%\README.txt
+echo    IF AUTO-DISCOVERY FAILS: >> %RELEASE_DIR%\README.txt
+echo    The app will show a BLOCKING DIALOG. >> %RELEASE_DIR%\README.txt
+echo    - Click "Yes" to OPEN DOWNLOAD PAGE (Modding Wiki) >> %RELEASE_DIR%\README.txt
+echo    - Click "No" to RE-CHECK after you have copied the file. >> %RELEASE_DIR%\README.txt
+echo    You CANNOT use the app until this file is found. >> %RELEASE_DIR%\README.txt
+echo. >> %RELEASE_DIR%\README.txt
+echo    MANUAL DLL SETUP (Only if auto-detect fails): >> %RELEASE_DIR%\README.txt
+echo    Copy 'oo2core_9_win64.dll' from: >> %RELEASE_DIR%\README.txt
+echo    Steam:      C:\Program Files (x86)\Steam\steamapps\common\Hogwarts Legacy\Engine\Binaries\ThirdParty\Oodle\Win64\ >> %RELEASE_DIR%\README.txt
+echo    Epic Games: C:\Program Files\Epic Games\Hogwarts Legacy\Engine\Binaries\ThirdParty\Oodle\Win64\ >> %RELEASE_DIR%\README.txt
+echo    - Copy 'oo2core_9_win64.dll' >> %RELEASE_DIR%\README.txt
+echo    - Paste it into the same folder as this app >> %RELEASE_DIR%\README.txt
+echo. >> %RELEASE_DIR%\README.txt
+echo    ALTERNATIVE (Download): >> %RELEASE_DIR%\README.txt
+echo    https://modding.wiki/hogwartslegacy/oo2core_9_win64.dll >> %RELEASE_DIR%\README.txt
+echo. >> %RELEASE_DIR%\README.txt
+echo 2. RUN THE APP: >> %RELEASE_DIR%\README.txt
+echo    Double-click 'HogwartsLegacy-SaveEditor.exe' >> %RELEASE_DIR%\README.txt
+echo. >> %RELEASE_DIR%\README.txt
+echo 3. EDIT: >> %RELEASE_DIR%\README.txt
+echo    Select a save file, click "Edit Save File", make changes, and click "Download". >> %RELEASE_DIR%\README.txt
+echo. >> %RELEASE_DIR%\README.txt
+echo ============================================ >> %RELEASE_DIR%\README.txt
+echo   REQUIRED FILES >> %RELEASE_DIR%\README.txt
+echo ============================================ >> %RELEASE_DIR%\README.txt
+echo. >> %RELEASE_DIR%\README.txt
+echo [x] HogwartsLegacy-SaveEditor.exe - This app >> %RELEASE_DIR%\README.txt
+echo [x] HLSGE.html - Save editor >> %RELEASE_DIR%\README.txt
+echo [x] hlsaves.exe - Compression tool >> %RELEASE_DIR%\README.txt
+echo [?] oo2core_9_win64.dll - Auto-detected or manual copy >> %RELEASE_DIR%\README.txt
+echo. >> %RELEASE_DIR%\README.txt
+echo ============================================ >> %RELEASE_DIR%\README.txt
+echo. >> %RELEASE_DIR%\README.txt
+echo NOTE: The DLL cannot be distributed due to license. >> %RELEASE_DIR%\README.txt
+echo. >> %RELEASE_DIR%\README.txt
+echo ============================================ >> %RELEASE_DIR%\README.txt
+echo   CREDITS >> %RELEASE_DIR%\README.txt
+echo ============================================ >> %RELEASE_DIR%\README.txt
+echo. >> %RELEASE_DIR%\README.txt
+echo Developer: falker47 >> %RELEASE_DIR%\README.txt
+echo. >> %RELEASE_DIR%\README.txt
+echo Special Thanks: >> %RELEASE_DIR%\README.txt
+echo - Katt (hlsaves.exe) - MIT License >> %RELEASE_DIR%\README.txt
+echo - ekaomk (HLSGE Save Editor) >> %RELEASE_DIR%\README.txt
+echo. >> %RELEASE_DIR%\README.txt
+echo ============================================ >> %RELEASE_DIR%\README.txt
 
 :: Check what's missing
 echo.
@@ -110,7 +125,7 @@ echo.
 echo Release folder: %RELEASE_DIR%\
 echo.
 echo Contents:
-if exist %RELEASE_DIR%\HL_Save_Manager.exe (echo   [OK] HL_Save_Manager.exe) else (echo   [!!] HL_Save_Manager.exe - MISSING)
+if exist %RELEASE_DIR%\HogwartsLegacy-SaveEditor.exe (echo   [OK] HogwartsLegacy-SaveEditor.exe) else (echo   [!!] HogwartsLegacy-SaveEditor.exe - MISSING)
 if exist %RELEASE_DIR%\HLSGE.html (echo   [OK] HLSGE.html) else (echo   [!!] HLSGE.html - MISSING - Add manually)
 if exist %RELEASE_DIR%\hlsaves.exe (echo   [OK] hlsaves.exe) else (echo   [!!] hlsaves.exe - MISSING - Add manually)
 echo   [!!] oo2core_9_win64.dll - User must add from game

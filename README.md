@@ -9,7 +9,8 @@ A modern, user-friendly GUI application for editing and managing Hogwarts Legacy
 ## ✨ Features
 
 - 📁 **Auto-detect** save files location
-- 🔓 **One-click** save extraction and editing
+- � **Auto-find** required DLL from game folder
+- �🔓 **One-click** save extraction and editing
 - 🌐 **Integrated editor** - opens directly in the app
 - 💾 **Auto-save** - changes applied automatically when you click Download
 - 📦 **Automatic backups** - never lose your progress
@@ -27,7 +28,14 @@ A modern, user-friendly GUI application for editing and managing Hogwarts Legacy
 
 ### 🔍 How to find `oo2core_9_win64.dll` 
 
-This file is required for decompression but **cannot be distributed** with the app. You must copy it from your game installation folder.
+The app will try to **automatically find and copy** this file from **ANY** of your installed games (e.g., FC26, Hogwarts Legacy) by scanning your Steam and Epic libraries.
+
+**If auto-detection fails**, the app will show a **Blocking Dialog** that guides you:
+1. It offers a button to **Open Download Page** (Modding Wiki) directly.
+2. It pauses until you copy the file into the folder.
+3. Once copied, click "No" (Retry) and the app will start instantly.
+
+**Manual Instructions (if needed):**
 
 **Common locations:**
 - **Steam:** `C:\Program Files (x86)\Steam\steamapps\common\Hogwarts Legacy\Engine\Binaries\ThirdParty\Oodle\Win64\`
@@ -36,7 +44,9 @@ This file is required for decompression but **cannot be distributed** with the a
 **Instructions:**
 1. Navigate to the folder above
 2. Copy `oo2core_9_win64.dll`
-3. Paste it into the same folder as `HL_Save_Manager.exe`
+3. Paste it into the same folder as `HogwartsLegacy-SaveEditor.exe`
+
+> **Note:** If you cannot find the file, you can download it separately from [Modding Wiki](https://modding.wiki/hogwartslegacy/oo2core_9_win64.dll).
 
 ### Python Dependencies (for running from source)
 

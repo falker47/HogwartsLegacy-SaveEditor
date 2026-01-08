@@ -267,25 +267,101 @@ class App(BaseWindow):
         # Create temp dir
         self.temp_dir.mkdir(exist_ok=True)
         
-        # Verify files
-        if not self._verify_required_files():
-            return
-        
         # Build UI
         self._create_ui()
+        
+        # Verify files
+        if not self._verify_required_files():
+            # If crucial files are missing (and auto-recovery failed), 
+            # the user has already been shown an error message.
+            # We continue initialization so the app doesn't just crash/close silently,
+            # allowing the user to read the log or try again.
+            pass
+        
         self._detect_save_directory()
     
+    def _find_and_copy_dll(self) -> bool:
+        """Attempt to find and copy oo2core_9_win64.dll from ANY game installation."""
+        dll_name = "oo2core_9_win64.dll"
+        target_path = self.app_dir / dll_name
+        
+        # 1. Check specific hardcoded paths first (fastest)
+        fast_paths = [
+            Path(r"C:\Program Files (x86)\Steam\steamapps\common\Hogwarts Legacy\Engine\Binaries\ThirdParty\Oodle\Win64\oo2core_9_win64.dll"),
+            Path(r"C:\Program Files\Epic Games\Hogwarts Legacy\Engine\Binaries\ThirdParty\Oodle\Win64\oo2core_9_win64.dll"),
+        ]
+        
+        for path in fast_paths:
+            if path.exists():
+                try:
+                    print(f"Found DLL at (Fast Path): {path}")
+                    shutil.copy2(path, target_path)
+                    messagebox.showinfo("Auto-Setup", f"Successfully found and copied {dll_name}!\n\nSource: {path}\n(Hogwarts Legacy folder)")
+                    return True
+                except Exception as e:
+                    print(f"Failed to copy from {path}: {e}")
+
+        # 2. Dynamic Search in Library Roots
+        # We look for common library folder structures across all potential drives
+        
+        drives = [f"{d}:\\" for d in "CDEFGHIJKLMNOPQRSTUVWXYZ" if os.path.exists(f"{d}:\\")]
+        search_roots = []
+        
+        for drive in drives:
+            # Steam Paths
+            search_roots.append(Path(drive) / "Program Files (x86)" / "Steam" / "steamapps" / "common")
+            search_roots.append(Path(drive) / "SteamLibrary" / "steamapps" / "common")
+            # Epic Paths
+            search_roots.append(Path(drive) / "Program Files" / "Epic Games")
+            search_roots.append(Path(drive) / "Epic Games")
+
+        print("🔍 Starting deep search for DLL in game libraries...")
+        self._log("🔍 Searching for DLL in game libraries... this may take a moment.")
+        
+        for root in search_roots:
+            if not root.exists():
+                continue
+                
+            print(f"Scanning root: {root}")
+            # Search pattern: look for the DLL in any subdirectory
+            # We limit depth slightly by iterating games then looking for the specific subpath pattern or just the file
+            # Since the file is usually deep in Engine/Binaries/..., we trust rglob but check valid folders
+            
+            try:
+                # Iterate over each game folder in the root to avoid scanning unrelated stuff
+                # This is safer than a raw rglob on the root which might be huge
+                for game_dir in root.iterdir():
+                    if not game_dir.is_dir():
+                        continue
+                        
+                    # Now search inside this game directory
+                    # We expect it in Engine/Binaries/ThirdParty/Oodle/Win64/ usually
+                    # But user said FC26 has it, so we trust the filename
+                    found = list(game_dir.rglob(dll_name))
+                    
+                    if found:
+                        source = found[0] # Take the first one found
+                        try:
+                            print(f"Found DLL at: {source}")
+                            shutil.copy2(source, target_path)
+                            self._log(f"✅ Found DLL in {game_dir.name}!")
+                            messagebox.showinfo("Auto-Setup", f"Successfully found and copied {dll_name}!\n\nSource: {source}\n(Found in {game_dir.name})")
+                            return True
+                        except Exception as e:
+                            print(f"Failed copy from {source}: {e}")
+            except Exception as e:
+                print(f"Error scanning {root}: {e}")
+                    
+        return False
+
     def _verify_required_files(self) -> bool:
+        # 1. HLSAVES & HLSGE
         missing = []
         if not self.hlsaves_exe.exists():
             missing.append(("hlsaves.exe", "Save tool by Katt"))
         if not self.hlsge_html.exists():
             missing.append(("HLSGE.html", "Editor by ekaomk"))
-        
-        dll = self.app_dir / "oo2core_9_win64.dll"
-        if not dll.exists():
-            missing.append(("oo2core_9_win64.dll", "From game files"))
-        
+            
         if missing:
             msg = "Missing files:\n\n"
             for f, d in missing:
@@ -293,6 +369,50 @@ class App(BaseWindow):
             msg += f"\nPlace in: {self.app_dir}"
             messagebox.showerror("Missing Files", msg)
             return False
+
+        # 2. BLOCKING DLL CHECK
+        # We enter a loop that only breaks if DLL is found or user force exits
+        while True:
+            dll = self.app_dir / "oo2core_9_win64.dll"
+            
+            # If found, great!
+            if dll.exists():
+                return True
+                
+            # If not found, try auto-discovery ONCE (silent attempt)
+            if self._find_and_copy_dll():
+                return True
+                
+            # If still not found, we BLOCK here.
+            self._log("❌ REQUIRED FILE MISSING: oo2core_9_win64.dll")
+            self._log("👉 Please download it and place it in the app folder.")
+            
+            # Custom Blocking Dialog Logic
+            # We use a standard messagebox first for simplicity but loop until satisfied
+            
+            msg = "⛔ MISSING REQUIRED COMPONENT ⛔\n\n"
+            msg += "The file 'oo2core_9_win64.dll' was not found.\n"
+            msg += "The app CANNOT work without it.\n\n"
+            msg += "1. Click 'Yes' to DOWNLOAD it (Modding Wiki)\n"
+            msg += "2. Copy it to this app's folder\n"
+            msg += "3. Click 'No' to RE-CHECK for the file\n\n"
+            msg += f"App Folder: {self.app_dir}\n"
+            
+            # Yes = Download, No = Re-Check (it's actually 'No', but we treat it as retry signal)
+            # Cancel = Quit
+            choice = messagebox.askyesnocancel("Action Required", msg)
+            
+            if choice is None: # Cancel -> Exit
+                self.destroy() # Close main app
+                sys.exit(0)
+            elif choice: # Yes -> Download
+                import webbrowser
+                webbrowser.open("https://modding.wiki/hogwartslegacy/oo2core_9_win64.dll")
+                # Loop repeats immediately to let them re-check
+            else:
+                # No -> Just repeats loop (Re-Check)
+                pass 
+                
         return True
     
     def _create_ui(self) -> None:
@@ -407,6 +527,10 @@ class App(BaseWindow):
         self.update()
     
     def _log(self, msg: str) -> None:
+        if not hasattr(self, "log_textbox"):
+            print(f"[LOG] {msg}")
+            return
+            
         ts = datetime.now().strftime("%H:%M:%S")
         self.log_textbox.configure(state="normal")
         self.log_textbox.insert("end", f"[{ts}] {msg}\n" if msg else "\n")
@@ -701,7 +825,7 @@ class App(BaseWindow):
         messagebox.showinfo("Credits", """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    HOGWARTS LEGACY SAVE MANAGER
-            Version 1.5
+            Version 1.0
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🧙 Developed by: falker47

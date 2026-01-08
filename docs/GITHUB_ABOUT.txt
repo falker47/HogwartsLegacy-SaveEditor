@@ -1,0 +1,23 @@
+Hogwarts Legacy Save Editor & Manager
+=====================================
+
+SHORT DESCRIPTION (for GitHub sidebar):
+---------------------------------------
+A modern, user-friendly GUI to manage, backup, and edit Hogwarts Legacy save files. Features auto-save detection, integrated editor, and smart recovery.
+
+TOPICS / TAGS:
+--------------
+hogwarts-legacy, save-editor, python, gui, save-manager, backup-tool, customtkinter, pywebview, harry-potter, game-tools
+
+README HEADER (Already in README.md, but refined here):
+-------------------------------------------------------
+# 🧙 Hogwarts Legacy Save Editor & Manager
+
+![Platform](https://img.shields.io/badge/Platform-Windows-blue.svg)
+![Version](https://img.shields.io/badge/Version-v1.0-green.svg)
+![License](https://img.shields.io/badge/License-MIT-orange.svg)
+
+**The ultimate tool for Hogwarts Legacy players.**
+Detected locally, edited instantly. No more manual file uploading.
+
+> **New in v1.0:** Smart Auto-Discovery finds required DLLs from any installed game automatically!

@@ -1,4 +1,4 @@
-# Hogwarts Legacy Save Editor & Manager - Credits
+# Hogwarts Legacy Save Editor & Manager v1.0 - Credits
 
 ## 🧙 Developer
 
