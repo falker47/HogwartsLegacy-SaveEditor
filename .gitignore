@@ -1,0 +1,52 @@
+# Build artifacts
+build/
+dist/
+*.spec
+*.exe
+!hlsaves.exe
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.Python
+*.egg-info/
+.eggs/
+*.egg
+
+# Virtual environment
+venv/
+env/
+ENV/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temp files
+temp/
+*.tmp
+*.temp
+editor_status.txt
+
+# System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Game DLL (do not distribute)
+oo2core_9_win64.dll
+
+# Backups (user data)
+Backups/
+
+# Log files
+*.log
+
+# Release packages
+*.zip
+release/
