@@ -1,6 +1,6 @@
-# 🧙 Hogwarts Legacy Save Manager
+# 🧙 Hogwarts Legacy Save Editor & Manager
 
-A modern, user-friendly GUI application for editing Hogwarts Legacy save files.
+A modern, user-friendly GUI application for editing and managing Hogwarts Legacy save files.
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
