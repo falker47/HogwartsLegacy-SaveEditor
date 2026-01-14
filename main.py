@@ -6,6 +6,7 @@ A modern GUI application to manage, backup, and edit Hogwarts Legacy save files.
 import os
 import sys
 import re
+import hashlib
 import base64
 import shutil
 import subprocess
@@ -280,6 +281,62 @@ class App(BaseWindow):
         
         self._detect_save_directory()
     
+    # Expected SHA256 hash of the trusted oo2core_9_win64.dll
+    EXPECTED_DLL_HASH = "19452ae1abae65e1305d3818354d4fae7b1200294322f0d9c6d5ddeb7bd9f978"
+    
+    def _verify_dll_hash(self, dll_path: Path) -> bool:
+        """Verify the SHA256 hash of the DLL file."""
+        try:
+            sha256_hash = hashlib.sha256()
+            with open(dll_path, 'rb') as f:
+                for chunk in iter(lambda: f.read(8192), b''):
+                    sha256_hash.update(chunk)
+            actual_hash = sha256_hash.hexdigest().lower()
+            return actual_hash == self.EXPECTED_DLL_HASH
+        except Exception as e:
+            print(f"Hash verification error: {e}")
+            return False
+    
+    def _download_dll_from_web(self) -> bool:
+        """Download oo2core_9_win64.dll from modding.wiki and verify its hash."""
+        import urllib.request
+        import urllib.error
+        
+        dll_name = "oo2core_9_win64.dll"
+        target_path = self.app_dir / dll_name
+        download_url = "https://modding.wiki/hogwartslegacy/oo2core_9_win64.dll"
+        
+        try:
+            self._log("⬇️ Downloading DLL from modding.wiki...")
+            urllib.request.urlretrieve(download_url, target_path)
+            
+            # Verify hash of downloaded file
+            if self._verify_dll_hash(target_path):
+                self._log("✅ DLL downloaded and verified successfully!")
+                messagebox.showinfo("Download Complete", f"Successfully downloaded and verified {dll_name}!")
+                return True
+            else:
+                self._log("⚠️ Downloaded DLL hash verification failed!")
+                target_path.unlink(missing_ok=True)
+                messagebox.showwarning("Verification Failed", 
+                    "The downloaded DLL failed hash verification.\n\n"
+                    "The file may be corrupted or modified.\n"
+                    "Please search for the DLL in your PC instead.")
+                return False
+                
+        except urllib.error.URLError as e:
+            self._log(f"❌ Download failed: {e.reason}")
+            messagebox.showwarning("Download Failed", 
+                f"Could not download from modding.wiki:\n{e.reason}\n\n"
+                "Please search for the DLL in your PC instead.")
+            return False
+        except Exception as e:
+            self._log(f"❌ Download error: {e}")
+            messagebox.showwarning("Download Error", 
+                f"Error downloading DLL:\n{e}\n\n"
+                "Please search for the DLL in your PC instead.")
+            return False
+    
     def _find_and_copy_dll(self) -> bool:
         """Attempt to find and copy oo2core_9_win64.dll from ANY game installation."""
         dll_name = "oo2core_9_win64.dll"
@@ -375,43 +432,61 @@ class App(BaseWindow):
         while True:
             dll = self.app_dir / "oo2core_9_win64.dll"
             
-            # If found, great!
+            # If DLL already exists locally, trust it
             if dll.exists():
                 return True
                 
-            # If not found, try auto-discovery ONCE (silent attempt)
+            # If not found, try auto-discovery from game installations
             if self._find_and_copy_dll():
                 return True
                 
-            # If still not found, we BLOCK here.
+            # If still not found, we BLOCK here and offer options
             self._log("❌ REQUIRED FILE MISSING: oo2core_9_win64.dll")
-            self._log("👉 Please download it and place it in the app folder.")
-            
-            # Custom Blocking Dialog Logic
-            # We use a standard messagebox first for simplicity but loop until satisfied
             
             msg = "⛔ MISSING REQUIRED COMPONENT ⛔\n\n"
             msg += "The file 'oo2core_9_win64.dll' was not found.\n"
             msg += "The app CANNOT work without it.\n\n"
-            msg += "1. Click 'Yes' to DOWNLOAD it (Modding Wiki)\n"
-            msg += "2. Copy it to this app's folder\n"
-            msg += "3. Click 'No' to RE-CHECK for the file\n\n"
+            msg += "Click 'Yes' to DOWNLOAD it (with hash verification)\n"
+            msg += "Click 'No' to SEARCH your PC for the file\n"
+            msg += "Click 'Cancel' to EXIT\n\n"
             msg += f"App Folder: {self.app_dir}\n"
             
-            # Yes = Download, No = Re-Check (it's actually 'No', but we treat it as retry signal)
-            # Cancel = Quit
             choice = messagebox.askyesnocancel("Action Required", msg)
             
-            if choice is None: # Cancel -> Exit
-                self.destroy() # Close main app
+            if choice is None:  # Cancel -> Exit
+                self.destroy()
                 sys.exit(0)
-            elif choice: # Yes -> Download
-                import webbrowser
-                webbrowser.open("https://modding.wiki/hogwartslegacy/oo2core_9_win64.dll")
-                # Loop repeats immediately to let them re-check
-            else:
-                # No -> Just repeats loop (Re-Check)
-                pass 
+            elif choice:  # Yes -> Try download with hash verification
+                if self._download_dll_from_web():
+                    return True
+                # If download failed, loop continues to let user try again or search PC
+            else:  # No -> Search PC
+                self._log("🔍 Searching for DLL on your PC...")
+                if self._find_and_copy_dll():
+                    return True
+                else:
+                    # Offer manual file selection
+                    messagebox.showinfo("Manual Selection", 
+                        "Could not find the DLL automatically.\n\n"
+                        "Please select the 'oo2core_9_win64.dll' file manually.")
+                    
+                    file_path = filedialog.askopenfilename(
+                        title="Select oo2core_9_win64.dll",
+                        filetypes=[("DLL files", "*.dll"), ("All files", "*.*")]
+                    )
+                    
+                    if file_path and Path(file_path).name.lower() == "oo2core_9_win64.dll":
+                        try:
+                            shutil.copy2(file_path, dll)
+                            self._log(f"✅ DLL copied from: {file_path}")
+                            messagebox.showinfo("Success", "DLL file copied successfully!")
+                            return True
+                        except Exception as e:
+                            self._log(f"❌ Failed to copy DLL: {e}")
+                            messagebox.showerror("Error", f"Failed to copy file: {e}")
+                    elif file_path:
+                        messagebox.showwarning("Wrong File", "Please select 'oo2core_9_win64.dll'")
+            # Loop continues
                 
         return True
     

@@ -69,21 +69,18 @@ echo    Double-click 'HogwartsLegacy-SaveEditor.exe'. >> %RELEASE_DIR%\README.tx
 echo    The app will try to AUTO-FIND 'oo2core_9_win64.dll'. >> %RELEASE_DIR%\README.txt
 echo    It scans all your Steam/Epic game libraries (e.g. FC26, Hogwarts Legacy). >> %RELEASE_DIR%\README.txt
 echo. >> %RELEASE_DIR%\README.txt
-echo    IF AUTO-DISCOVERY FAILS: >> %RELEASE_DIR%\README.txt
-echo    The app will show a BLOCKING DIALOG. >> %RELEASE_DIR%\README.txt
-echo    - Click "Yes" to OPEN DOWNLOAD PAGE (Modding Wiki) >> %RELEASE_DIR%\README.txt
-echo    - Click "No" to RE-CHECK after you have copied the file. >> %RELEASE_DIR%\README.txt
-echo    You CANNOT use the app until this file is found. >> %RELEASE_DIR%\README.txt
-echo. >> %RELEASE_DIR%\README.txt
-echo    MANUAL DLL SETUP (Only if auto-detect fails): >> %RELEASE_DIR%\README.txt
-echo    Copy 'oo2core_9_win64.dll' from: >> %RELEASE_DIR%\README.txt
-echo    Steam:      C:\Program Files (x86)\Steam\steamapps\common\Hogwarts Legacy\Engine\Binaries\ThirdParty\Oodle\Win64\ >> %RELEASE_DIR%\README.txt
-echo    Epic Games: C:\Program Files\Epic Games\Hogwarts Legacy\Engine\Binaries\ThirdParty\Oodle\Win64\ >> %RELEASE_DIR%\README.txt
-echo    - Copy 'oo2core_9_win64.dll' >> %RELEASE_DIR%\README.txt
-echo    - Paste it into the same folder as this app >> %RELEASE_DIR%\README.txt
-echo. >> %RELEASE_DIR%\README.txt
-echo    ALTERNATIVE (Download): >> %RELEASE_DIR%\README.txt
-echo    https://modding.wiki/hogwartslegacy/oo2core_9_win64.dll >> %RELEASE_DIR%\README.txt
+    echo    IF AUTO-DISCOVERY FAILS: >> %RELEASE_DIR%\README.txt
+    echo    The app will ask if you want to DOWNLOAD the file automatically. >> %RELEASE_DIR%\README.txt
+    echo    - Click "Yes" to DOWNLOAD (from Modding Wiki with hash verification) >> %RELEASE_DIR%\README.txt
+    echo    - Click "No" to SEARCH your PC or select the file manually. >> %RELEASE_DIR%\README.txt
+    echo    You CANNOT use the app until this file is found/downloaded. >> %RELEASE_DIR%\README.txt
+    echo. >> %RELEASE_DIR%\README.txt
+    echo    MANUAL DLL SETUP (If download fails): >> %RELEASE_DIR%\README.txt
+    echo    Copy 'oo2core_9_win64.dll' from: >> %RELEASE_DIR%\README.txt
+    echo    Steam:      C:\Program Files (x86)\Steam\steamapps\common\Hogwarts Legacy\Engine\Binaries\ThirdParty\Oodle\Win64\ >> %RELEASE_DIR%\README.txt
+    echo    Epic Games: C:\Program Files\Epic Games\Hogwarts Legacy\Engine\Binaries\ThirdParty\Oodle\Win64\ >> %RELEASE_DIR%\README.txt
+    echo    - Copy 'oo2core_9_win64.dll' >> %RELEASE_DIR%\README.txt
+    echo    - Paste it into the same folder as this app >> %RELEASE_DIR%\README.txt
 echo. >> %RELEASE_DIR%\README.txt
 echo 2. RUN THE APP: >> %RELEASE_DIR%\README.txt
 echo    Double-click 'HogwartsLegacy-SaveEditor.exe' >> %RELEASE_DIR%\README.txt

@@ -30,12 +30,12 @@ A modern, user-friendly GUI application for editing and managing Hogwarts Legacy
 
 ### 🔍 How to find `oo2core_9_win64.dll` 
 
-The app will try to **automatically find and copy** this file from **ANY** of your installed games (e.g., FC26, Hogwarts Legacy) by scanning your Steam and Epic libraries.
+The app will first try to **automatically find and copy** this file from your installed games (e.g., Hogwarts Legacy).
 
-**If auto-detection fails**, the app will show a **Blocking Dialog** that guides you:
-1. It offers a button to **Open Download Page** (Modding Wiki) directly.
-2. It pauses until you copy the file into the folder.
-3. Once copied, click "No" (Retry) and the app will start instantly.
+**If auto-detection fails**, the app will offer to **Download** the file automatically:
+1. Click **Yes** to download the official DLL from Modding Wiki.
+   - The app verifies the file's integrity (SHA256) automatically.
+2. If download fails, you can click **No** to search your PC or select the file manually.
 
 **Manual Instructions (if needed):**
 
