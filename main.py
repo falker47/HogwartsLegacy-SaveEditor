@@ -112,15 +112,23 @@ def launch_editor_process(html_path: str, file_path: str, file_name: str,
         
         api = Api(file_path, file_name, original_save, hlsaves_path, app_dir)
         
-        # Position on right half of screen
-        editor_width = screen_width // 2
-        editor_height = screen_height - 80  # Leave taskbar space
-        editor_x = screen_width // 2
+        # Position on right side (55% of screen)
+        manager_width = int(screen_width * 0.45)
+        editor_width = screen_width - manager_width
+        editor_height = screen_height - 50  # Leave taskbar space
+        editor_x = manager_width
         editor_y = 0
         
+        # Use file:// URI to force direct file loading and bypass pywebview's internal HTTP server
+        # (which was causing 500 errors on some systems).
+        # We prepend file:/// (and ensure forward slashes) so pywebview treats it as a URL,
+        # not a local path it needs to serve.
+        from pathlib import Path
+        file_uri = Path(html_path).as_uri()
+
         window_ref[0] = webview.create_window(
             'Hogwarts Legacy Save Editor',
-            html_path,
+            file_uri,
             width=editor_width, height=editor_height,
             x=editor_x, y=editor_y,
             js_api=api
@@ -230,11 +238,11 @@ class App(BaseWindow):
         
         self.title("Hogwarts Legacy Save Editor & Manager")
         
-        # Position on left half of screen
+        # Position on left side (45% of screen)
         self.update_idletasks()
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
-        window_width = screen_width // 2
+        window_width = int(screen_width * 0.45)
         window_height = screen_height - 80  # Leave taskbar space
         self.geometry(f"{window_width}x{window_height}+0+0")
         self.minsize(600, 500)

@@ -107,6 +107,16 @@ HogwartsLegacy-SaveEditor/
 ├── HLSGE.html                     # Save editor (required)
 ├── oo2core_9_win64.dll            # From game (required)
 └── Backups/                       # Created automatically
+
+## 🔄 Changelog
+
+### v1.02
+- FIXED: "500 Internal Server Error" on launch for some users.
+- IMPROVED: Editor now loads files directly instead of using a local server.
+
+### v1.01
+- Added automatic DLL download with hash verification.
+- Improved error handling.
 ```
 
 ## 🎮 Where Are My Saves?
