@@ -9,13 +9,16 @@ from pathlib import Path
 from typing import Callable, Optional
 
 
-def get_editor_bridge_js() -> str:
+def get_editor_bridge_js(app_dir: str) -> str:
     """
     Load the editor bridge JavaScript from the assets folder.
     Falls back to inline JS if file not found.
+    
+    Args:
+        app_dir: Application directory to find assets folder.
     """
     try:
-        js_path = Path(__file__).parent.parent / "assets" / "editor_bridge.js"
+        js_path = Path(app_dir) / "assets" / "editor_bridge.js"
         if js_path.exists():
             return js_path.read_text(encoding='utf-8')
     except Exception as e:
@@ -202,7 +205,7 @@ def launch_editor_process(
         api.set_window(window)
 
         def on_loaded():
-            js = get_editor_bridge_js()
+            js = get_editor_bridge_js(app_dir)
             window.evaluate_js(js)
 
         write_status("editing", "Editor opened")
