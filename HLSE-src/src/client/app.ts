@@ -26,6 +26,7 @@ import FastTravelLocksPage from './pages/fastTravelLocksPage.vue';
 import GearLocksPage from './pages/gearLocksPage.vue';
 import TraitsLocksPage from './pages/traitsLocksPage.vue';
 import TransfigurationLocksPage from './pages/transfigurationLocksPage.vue';
+import CollectionsPage from './pages/collectionsPage.vue';
 
 const vuetify = createVuetify({
     components,
@@ -48,6 +49,7 @@ const routes = [
     { path: '/gearLocks', component: GearLocksPage },
     { path: '/traitLocks', component: TraitsLocksPage },
     { path: '/transfigurationLocks', component: TransfigurationLocksPage },
+    { path: '/collections', component: CollectionsPage },
     { path: '/experiments', component: ExperimentsPage },
     { path: '/saveFile', component: SaveFilePage }
 ];

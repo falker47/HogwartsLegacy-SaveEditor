@@ -72,6 +72,11 @@
       icon: 'mdi-lock'
     },
     {
+      title: 'Collections',
+      path: '/collections',
+      icon: 'mdi-shape-plus'
+    },
+    {
       title: 'Unlocks',
       icon: 'mdi-lock-open-variant',
       path: '/experiments'

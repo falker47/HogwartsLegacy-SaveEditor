@@ -2,62 +2,49 @@ import AppStateRA from '../resources/appState';
 import { GearItem, LockState, PlayerData, PlayerResource } from '../interfaces';
 import { FastTravelLocks, TransFigurationLocks, SpellLocks, GearLocks, TraitLocks } from '../resources/lists';
 
-class SaveGameManager
-{
-    async getPlayerResourceInventory() : Promise<PlayerResource[]>
-    {
-        if(!AppStateRA.saveGameDB)
-        {
+class SaveGameManager {
+    async getPlayerResourceInventory(): Promise<PlayerResource[]> {
+        if (!AppStateRA.saveGameDB) {
             return [];
         }
 
         return AppStateRA.saveGameDB.getPlayerResources();
     }
 
-    async getPlayerCombatResourceInventory() : Promise<PlayerResource[]>
-    {
-        if(!AppStateRA.saveGameDB)
-        {
+    async getPlayerCombatResourceInventory(): Promise<PlayerResource[]> {
+        if (!AppStateRA.saveGameDB) {
             return [];
         }
 
         return AppStateRA.saveGameDB.getPlayerCombatResources();
     }
 
-    async getPlayerMissionResources() : Promise<PlayerResource[]>
-    {
-        if(!AppStateRA.saveGameDB)
-        {
+    async getPlayerMissionResources(): Promise<PlayerResource[]> {
+        if (!AppStateRA.saveGameDB) {
             return [];
         }
 
         return AppStateRA.saveGameDB.getPlayerMissionResources();
     }
 
-    async getPlayerPerks() : Promise<string[]>
-    {
-        if(!AppStateRA.saveGameDB)
-        {
+    async getPlayerPerks(): Promise<string[]> {
+        if (!AppStateRA.saveGameDB) {
             return [];
         }
 
         return AppStateRA.saveGameDB.getPlayerPerks();
     }
 
-    async deletePerk(perkName : string) : Promise<void>
-    {
-        if(!AppStateRA.saveGameDB)
-        {
+    async deletePerk(perkName: string): Promise<void> {
+        if (!AppStateRA.saveGameDB) {
             return;
         }
 
         return AppStateRA.saveGameDB.deletePlayerPerk(perkName);
     }
 
-    async modifyPlayerData(playerData : PlayerData) : Promise<void>
-    {
-        if(!AppStateRA.saveGameDB)
-        {
+    async modifyPlayerData(playerData: PlayerData): Promise<void> {
+        if (!AppStateRA.saveGameDB) {
             return;
         }
 
@@ -68,20 +55,16 @@ class SaveGameManager
         await AppStateRA.saveGameDB.modifyPlayerExp(playerData.Exp);
     }
 
-    async modifyPlayerResource(playerResource : PlayerResource) : Promise<void>
-    {
-        if(!AppStateRA.saveGameDB)
-        {
+    async modifyPlayerResource(playerResource: PlayerResource): Promise<void> {
+        if (!AppStateRA.saveGameDB) {
             return;
         }
 
         return AppStateRA.saveGameDB.modifyPlayerResource(playerResource);
     }
 
-    async getPlayerData() : Promise<PlayerData>
-    {
-        if(!AppStateRA.saveGameDB)
-        {
+    async getPlayerData(): Promise<PlayerData> {
+        if (!AppStateRA.saveGameDB) {
             return {
                 FirstName: '',
                 LastName: '',
@@ -96,23 +79,18 @@ class SaveGameManager
         return AppStateRA.saveGameDB.getPlayerData();
     }
 
-    getDatabase(secondary = false) : Uint8Array
-    {
-        if(!AppStateRA.saveGameData)
-        {
+    getDatabase(secondary = false): Uint8Array {
+        if (!AppStateRA.saveGameData) {
             return new Uint8Array(0);
         }
-        if(secondary)
-        {
+        if (secondary) {
             return AppStateRA.saveGameData.secondaryDB;
         }
         return AppStateRA.saveGameData.primaryDB;
     }
 
-    async generateSaveFile(db1 : Uint8Array | null = null, db2 : Uint8Array | null = null) : Promise<Uint8Array>
-    {
-        if(!AppStateRA.saveGameData || !AppStateRA.saveGameDB)
-        {
+    async generateSaveFile(db1: Uint8Array | null = null, db2: Uint8Array | null = null): Promise<Uint8Array> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) {
             return new Uint8Array(0);
         }
 
@@ -122,14 +100,11 @@ class SaveGameManager
         return AppStateRA.saveGameData.generateSaveFile(db1, db2);
     }
 
-    async unlockFastTravelPoints() : Promise<void>
-    {
-        if(!AppStateRA.saveGameData || !AppStateRA.saveGameDB)
-        {
+    async unlockFastTravelPoints(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) {
             return;
         }
-        for(const lockItem of FastTravelLocks)
-        {
+        for (const lockItem of FastTravelLocks) {
             // eslint-disable-next-line no-await-in-loop
             await AppStateRA.saveGameDB.insertLockItem(lockItem.LockID, 0);
             // eslint-disable-next-line no-await-in-loop
@@ -137,134 +112,104 @@ class SaveGameManager
         }
     }
 
-    async unlockTransfigurationItems() : Promise<void>
-    {
-        if(!AppStateRA.saveGameData || !AppStateRA.saveGameDB)
-        {
+    async unlockTransfigurationItems(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) {
             return;
         }
-        for(const lockItem of TransFigurationLocks)
-        {
+        for (const lockItem of TransFigurationLocks) {
             // eslint-disable-next-line no-await-in-loop
             await AppStateRA.saveGameDB.insertLockItem(lockItem.LockID, 0);
         }
     }
 
-    async unlockSpells() : Promise<void>
-    {
-        if(!AppStateRA.saveGameData || !AppStateRA.saveGameDB)
-        {
+    async unlockSpells(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) {
             return;
         }
-        for(const lockItem of SpellLocks)
-        {
+        for (const lockItem of SpellLocks) {
             // eslint-disable-next-line no-await-in-loop
             await AppStateRA.saveGameDB.insertLockItem(lockItem.LockID, 0);
         }
     }
 
-    async unlockGear() : Promise<void>
-    {
-        if(!AppStateRA.saveGameData || !AppStateRA.saveGameDB)
-        {
+    async unlockGear(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) {
             return;
         }
-        for(const lockItem of GearLocks)
-        {
+        for (const lockItem of GearLocks) {
             // eslint-disable-next-line no-await-in-loop
             await AppStateRA.saveGameDB.insertLockItem(lockItem.LockID, 0);
         }
     }
 
-    async unlockTraits() : Promise<void>
-    {
-        if(!AppStateRA.saveGameData || !AppStateRA.saveGameDB)
-        {
+    async unlockTraits(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) {
             return;
         }
-        for(const lockItem of TraitLocks)
-        {
+        for (const lockItem of TraitLocks) {
             // eslint-disable-next-line no-await-in-loop
             await AppStateRA.saveGameDB.insertLockItem(lockItem.LockID, 0);
         }
     }
 
-    async getPlayerGearInventory() : Promise<GearItem[]>
-    {
-        if(!AppStateRA.saveGameData || !AppStateRA.saveGameDB)
-        {
+    async getPlayerGearInventory(): Promise<GearItem[]> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) {
             return [];
         }
         return AppStateRA.saveGameDB.getPlayerGearInventory();
     }
 
-    async updateGearItem(item : GearItem) : Promise<void>
-    {
-        if(!AppStateRA.saveGameData || !AppStateRA.saveGameDB)
-        {
+    async updateGearItem(item: GearItem): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) {
             return;
         }
         return AppStateRA.saveGameDB.updateGearItem(item);
     }
 
-    async getSpellLocks() : Promise<LockState[]>
-    {
-        if(!AppStateRA.saveGameData || !AppStateRA.saveGameDB)
-        {
+    async getSpellLocks(): Promise<LockState[]> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) {
             return [];
         }
         return AppStateRA.saveGameDB.getLockStates(SpellLocks);
     }
 
-    async getFastTravelLocks() : Promise<LockState[]>
-    {
-        if(!AppStateRA.saveGameData || !AppStateRA.saveGameDB)
-        {
+    async getFastTravelLocks(): Promise<LockState[]> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) {
             return [];
         }
         return AppStateRA.saveGameDB.getLockStates(FastTravelLocks);
     }
 
-    async getGearLocks() : Promise<LockState[]>
-    {
-        if(!AppStateRA.saveGameData || !AppStateRA.saveGameDB)
-        {
+    async getGearLocks(): Promise<LockState[]> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) {
             return [];
         }
         return AppStateRA.saveGameDB.getLockStates(GearLocks);
     }
 
-    async getTraitLocks() : Promise<LockState[]>
-    {
-        if(!AppStateRA.saveGameData || !AppStateRA.saveGameDB)
-        {
+    async getTraitLocks(): Promise<LockState[]> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) {
             return [];
         }
         return AppStateRA.saveGameDB.getLockStates(TraitLocks);
     }
 
-    async getTransfigurationLocks() : Promise<LockState[]>
-    {
-        if(!AppStateRA.saveGameData || !AppStateRA.saveGameDB)
-        {
+    async getTransfigurationLocks(): Promise<LockState[]> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) {
             return [];
         }
         return AppStateRA.saveGameDB.getLockStates(TransFigurationLocks);
     }
 
-    async updateLockState(lockItem : LockState) : Promise<void>
-    {
-        if(!AppStateRA.saveGameData || !AppStateRA.saveGameDB)
-        {
+    async updateLockState(lockItem: LockState): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) {
             return;
         }
         return AppStateRA.saveGameDB.updateLockState(lockItem);
     }
 
-    async updateLockStateMap(lockItem : LockState) : Promise<void>
-    {
-        if(!AppStateRA.saveGameData || !AppStateRA.saveGameDB)
-        {
+    async updateLockStateMap(lockItem: LockState): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) {
             return;
         }
         await AppStateRA.saveGameDB.updateLockState(lockItem);
@@ -272,6 +217,13 @@ class SaveGameManager
             lockItem.LockID,
             lockItem.LockValue === '1' ? 8 : 9
         );
+    }
+
+    async unlockAllConjurations(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) {
+            return;
+        }
+        await AppStateRA.saveGameDB.unlockAllConjurations();
     }
 }
 

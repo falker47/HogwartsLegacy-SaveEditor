@@ -205,6 +205,11 @@ export class SaveGameDB {
         });
     }
 
+    async unlockAllConjurations(): Promise<void> {
+        const db = await this.#gameDB;
+        db.exec(`UPDATE CollectionDynamic SET ItemState = 'Obtained', UpdateTime = '-2108045320' WHERE CategoryID = 'Conjurations' AND ItemState <> 'Obtained'`);
+    }
+
     async getDBBytes(): Promise<Uint8Array> {
         const db = await this.#gameDB;
         return db.export();
