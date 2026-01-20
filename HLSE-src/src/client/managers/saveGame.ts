@@ -225,6 +225,16 @@ class SaveGameManager {
         }
         await AppStateRA.saveGameDB.unlockAllConjurations();
     }
+
+    async unlockRevelioPages(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
+        await AppStateRA.saveGameDB.unlockRevelioPages();
+    }
+
+    async unlockCosmetics(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
+        await AppStateRA.saveGameDB.unlockCosmetics();
+    }
 }
 
 export default new SaveGameManager();

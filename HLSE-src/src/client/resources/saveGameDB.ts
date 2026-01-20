@@ -206,8 +206,27 @@ export class SaveGameDB {
     }
 
     async unlockAllConjurations(): Promise<void> {
+        return this.unlockCollectionCategory('Conjurations');
+    }
+
+    async unlockRevelioPages(): Promise<void> {
+        return this.unlockCollectionCategory('RevelioPages');
+    }
+
+    async unlockCosmetics(): Promise<void> {
+        await this.unlockCollectionCategory('Appearances');
+        await this.unlockCollectionCategory('WandHandles');
+    }
+
+    async unlockTraits(): Promise<void> {
+        return this.unlockCollectionCategory('Traits');
+    }
+
+    async unlockCollectionCategory(categoryID: string): Promise<void> {
         const db = await this.#gameDB;
-        db.exec(`UPDATE CollectionDynamic SET ItemState = 'Obtained', UpdateTime = '-2108045320' WHERE CategoryID = 'Conjurations' AND ItemState <> 'Obtained'`);
+        db.exec(`UPDATE CollectionDynamic SET ItemState = 'Obtained', UpdateTime = '-2108045320' WHERE CategoryID = $category AND ItemState <> 'Obtained'`, {
+            $category: categoryID
+        });
     }
 
     async getDBBytes(): Promise<Uint8Array> {
