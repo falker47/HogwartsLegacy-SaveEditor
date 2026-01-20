@@ -35,13 +35,20 @@ if "%TKDND_PATH%"=="" (
 
 :: Build executable
 echo [3/5] Building executable...
-pyinstaller --onefile --windowed ^
+python -m PyInstaller --onefile --windowed ^
     --name "HogwartsLegacy-SaveEditor" ^
     %TKDND_ARGS% ^
+    --add-data "src;src" ^
+    --add-data "assets;assets" ^
     --hidden-import=webview ^
     --hidden-import=webview.platforms.edgechromium ^
     --hidden-import=clr ^
+    --hidden-import=src.config ^
+    --hidden-import=src.utils ^
+    --hidden-import=src.editor ^
+    --hidden-import=src.app ^
     main.py >nul 2>&1
+
 
 if not exist dist\HogwartsLegacy-SaveEditor.exe (
     echo ERROR: Build failed!

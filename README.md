@@ -11,8 +11,8 @@ A modern, user-friendly GUI application for editing and managing Hogwarts Legacy
 ## ✨ Features
 
 - 📁 **Auto-detect** save files location
-- � **Auto-find** required DLL from game folder
-- �🔓 **One-click** save extraction and editing
+- 🔍 **Auto-find** required DLL from game folder
+- 🔓 **One-click** save extraction and editing
 - 🌐 **Integrated editor** - opens directly in the app
 - 💾 **Auto-save** - changes applied automatically when you click Download
 - 📦 **Automatic backups** - never lose your progress
@@ -82,8 +82,7 @@ python main.py
 ### Option 3: Build Executable
 ```bash
 # Install dependencies
-pip install -r requirements.txt
-pip install pyinstaller
+pip install -r requirements-dev.txt
 
 # Build
 build.bat
@@ -102,11 +101,20 @@ build.bat
 
 ```
 HogwartsLegacy-SaveEditor/
-├── HogwartsLegacy-SaveEditor.exe  # Main application
+├── main.py                        # Entry point
+├── src/                           # Source modules
+│   ├── app.py                     # Main application
+│   ├── config.py                  # Configuration constants
+│   ├── editor.py                  # Editor process logic
+│   └── utils.py                   # Utility functions
+├── assets/                        # Static assets
+│   └── editor_bridge.js           # WebView bridge script
+├── tests/                         # Unit tests
+│   └── test_utils.py              # Utility tests
 ├── hlsaves.exe                    # Compression tool (required)
 ├── HLSGE.html                     # Save editor (required)
-├── oo2core_9_win64.dll            # From game (required)
-└── Backups/                       # Created automatically
+└── oo2core_9_win64.dll            # From game (required)
+```
 
 ## 🔄 Changelog
 
@@ -117,7 +125,6 @@ HogwartsLegacy-SaveEditor/
 ### v1.01
 - Added automatic DLL download with hash verification.
 - Improved error handling.
-```
 
 ## 🎮 Where Are My Saves?
 
