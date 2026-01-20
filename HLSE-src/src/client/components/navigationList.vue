@@ -16,11 +16,19 @@
   }
 
   const navList = [
+    { type: 'header', title: 'Player' },
     {
       title: 'Player Data',
       icon: 'mdi-account',
       path: '/playerDetail'
     },
+    {
+      title: 'Save File',
+      icon: 'mdi-content-save-move',
+      path: '/saveFile'
+    },
+
+    { type: 'header', title: 'Resources & Inventory' },
     {
       title: 'Resources',
       icon: 'mdi-format-list-bulleted',
@@ -46,6 +54,9 @@
       icon: 'mdi-magic-staff',
       path: '/playerPerks'
     },
+
+    { type: 'divider' },
+    { type: 'header', title: 'Lock Managers' },
     {
       title: 'Spell Locks',
       icon: 'mdi-lock',
@@ -71,34 +82,39 @@
       path: '/transfigurationLocks',
       icon: 'mdi-lock'
     },
+
+    { type: 'divider' },
+    { type: 'header', title: 'Bulk Tools' },
     {
-      title: 'Collections',
-      path: '/collections',
-      icon: 'mdi-shape-plus'
-    },
-    {
-      title: 'Unlocks',
-      icon: 'mdi-lock-open-variant',
+      title: 'Unlock Abilities',
+      icon: 'mdi-lock-open-check',
       path: '/experiments'
     },
     {
-      title: 'Save File',
-      icon: 'mdi-content-save-move',
-      path: '/saveFile'
+      title: 'Complete Collections',
+      path: '/collections',
+      icon: 'mdi-book-check'
     }
   ];
 
 </script>
 <template>
   <v-list>
-    <v-list-item
-      v-for="item in navList"
-      :key="item.title"
-      :active="item.title === currentTitle"
-      :title="item.title"
-      :prepend-icon="item.icon"
-      active-color="secondary"
-      @click="onItemClick(item)"
-    />
+    <template v-for="(item, index) in navList" :key="index">
+      <v-list-subheader v-if="item.type === 'header'" class="text-high-emphasis font-weight-bold">
+        {{ item.title }}
+      </v-list-subheader>
+      
+      <v-divider v-else-if="item.type === 'divider'" class="my-2" />
+      
+      <v-list-item
+        v-else
+        :active="item.title === currentTitle"
+        :title="item.title"
+        :prepend-icon="item.icon"
+        active-color="secondary"
+        @click="onItemClick(item)"
+      />
+    </template>
   </v-list>
 </template>

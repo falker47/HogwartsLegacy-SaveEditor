@@ -44,6 +44,20 @@ async function unlockTraits()
   <div
     class="d-flex flex-column ma-5 bg-surface-variant"
   >
+    <v-alert
+      type="warning"
+      variant="tonal"
+      class="mb-4"
+      icon="mdi-lock-open-variant"
+    >
+      <div class="text-h6">Unlock Abilities</div>
+      <div>
+        These buttons unlock the <strong>usage</strong> of items (e.g., being able to cast a spell or use a broom). 
+        <br>
+        To complete your Field Guide (Challenges), use the <strong>Complete Collections</strong> page instead.
+      </div>
+    </v-alert>
+
     <v-card>
       <v-card-item>
         <v-card-title>
