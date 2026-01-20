@@ -414,17 +414,30 @@ class App(BaseWindow):
         self.update()
 
     def _log(self, msg: str) -> None:
-        """Log a message to the status log."""
+        """Log a message to the status log (thread-safe)."""
         if not hasattr(self, "log_textbox"):
             print(f"[LOG] {msg}")
             return
 
+        # Ensure UI updates happen on the main thread
+        if threading.current_thread() is not threading.main_thread():
+            try:
+                self.after(0, lambda: self._log(msg))
+            except Exception:
+                # App might be destroying
+                pass
+            return
+
         ts = datetime.now().strftime("%H:%M:%S")
-        self.log_textbox.configure(state="normal")
-        self.log_textbox.insert("end", f"[{ts}] {msg}\n" if msg else "\n")
-        self.log_textbox.see("end")
-        self.log_textbox.configure(state="disabled")
-        self.update()
+        try:
+            self.log_textbox.configure(state="normal")
+            self.log_textbox.insert("end", f"[{ts}] {msg}\n" if msg else "\n")
+            self.log_textbox.see("end")
+            self.log_textbox.configure(state="disabled")
+            # Main loop handles updates, explicit update() is risky
+        except Exception:
+            # Widget might be destroyed
+            pass
 
     def _detect_save_directory(self) -> None:
         """Auto-detect the Hogwarts Legacy save directory."""

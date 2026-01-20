@@ -27,6 +27,9 @@ export class SaveGameDB {
     }
 
     #mapSqlResults<T>(sqlResults: initSqlJs.QueryExecResult, columnExtractList: string[] = []): T[] {
+        if (!sqlResults) {
+            return [];
+        }
         const columns = sqlResults.columns;
         const rows = sqlResults.values;
 
