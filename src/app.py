@@ -395,7 +395,14 @@ class App(BaseWindow):
         self._log("")
 
     def _show_progress(self, message: str) -> None:
-        """Show progress indicator."""
+        """Show progress indicator (thread-safe)."""
+        if threading.current_thread() is not threading.main_thread():
+            try:
+                self.after(0, lambda: self._show_progress(message))
+            except Exception:
+                pass
+            return
+
         self.is_working = True
         self.extract_button.configure(state="disabled", text="⏳ Working...")
         self.progress_label.configure(text=message)
@@ -403,15 +410,22 @@ class App(BaseWindow):
         self.progress_label.pack(padx=10, pady=(8, 2))
         self.progress_bar.pack(padx=10, pady=(2, 8), fill="x")
         self.progress_bar.start()
-        self.update()
+        # self.update() - Removed unsafe update
 
     def _hide_progress(self) -> None:
-        """Hide progress indicator."""
+        """Hide progress indicator (thread-safe)."""
+        if threading.current_thread() is not threading.main_thread():
+            try:
+                self.after(0, self._hide_progress)
+            except Exception:
+                pass
+            return
+
         self.is_working = False
         self.progress_bar.stop()
         self.progress_frame.grid_forget()
         self.extract_button.configure(state="normal", text="🔓 Edit Save File")
-        self.update()
+        # self.update() - Removed unsafe update
 
     def _log(self, msg: str) -> None:
         """Log a message to the status log (thread-safe)."""
@@ -480,7 +494,14 @@ class App(BaseWindow):
             self._refresh_save_list()
 
     def _refresh_save_list(self) -> None:
-        """Refresh the list of save files."""
+        """Refresh the list of save files (thread-safe)."""
+        if threading.current_thread() is not threading.main_thread():
+            try:
+                self.after(0, self._refresh_save_list)
+            except Exception:
+                pass
+            return
+
         for w in self.save_list_frame.winfo_children():
             w.destroy()
 
