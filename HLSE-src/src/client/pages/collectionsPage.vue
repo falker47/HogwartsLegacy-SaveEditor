@@ -22,6 +22,47 @@
       isWorking.value = false;
     }
   }
+
+  function downloadURL(data: string, fileName: string)
+  {
+    const hiddenDownloadLink = document.createElement('a');
+    hiddenDownloadLink.href = data;
+    hiddenDownloadLink.download = fileName;
+    document.body.appendChild(hiddenDownloadLink);
+    hiddenDownloadLink.style.display = 'none';
+    hiddenDownloadLink.click();
+    hiddenDownloadLink.remove();
+  }
+
+  function downloadBlob(data: Uint8Array, fileName: string, mimeType: string)
+  {
+    const blob = new Blob([ data as any ], {
+      type: mimeType
+    });
+
+    const url = URL.createObjectURL(blob);
+
+    downloadURL(url, fileName);
+
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function downloadSave()
+  {
+    isWorking.value = true;
+    try {
+      const saveFile = await SaveGameManager.generateSaveFile();
+      downloadBlob(saveFile, 'hlsave.sav', 'application/octet-stream');
+      successMessage.value = 'Save File Generated & Downloaded!';
+      showSuccess.value = true;
+    } catch(e) {
+      console.error(e);
+      successMessage.value = 'Error generating save file.';
+      showSuccess.value = true;
+    } finally {
+      isWorking.value = false;
+    }
+  }
 </script>
 
 <template>
@@ -110,6 +151,26 @@
         </v-card>
       </v-col>
     </v-row>
+
+    <v-divider class="my-4" />
+
+    <v-card class="bg-surface-variant">
+      <v-card-item>
+        <v-card-title>Save Changes</v-card-title>
+        <v-card-subtitle>Done unlocking? Download your modified save file.</v-card-subtitle>
+      </v-card-item>
+      <v-card-text>
+        <v-btn
+          block
+          color="success"
+          size="large"
+          prepend-icon="mdi-content-save-download"
+          @click="downloadSave"
+        >
+          GENERATE & DOWNLOAD SAVE
+        </v-btn>
+      </v-card-text>
+    </v-card>
 
     <v-snackbar v-model="showSuccess" color="success" timeout="3000">
       {{ successMessage }}
