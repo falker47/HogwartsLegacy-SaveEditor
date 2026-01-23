@@ -226,20 +226,8 @@ class SaveGameManager {
         await AppStateRA.saveGameDB.unlockAllConjurations();
     }
 
-    async unlockRevelioPages(): Promise<void> {
-        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
-        await AppStateRA.saveGameDB.unlockRevelioPages();
-    }
-
-    async unlockCosmetics(): Promise<void> {
-        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
-        await AppStateRA.saveGameDB.unlockCosmetics();
-    }
-
-    async unlockCollectionTraits(): Promise<void> {
-        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
-        await AppStateRA.saveGameDB.unlockTraits();
-    }
+    // Note: unlockRevelioPages, unlockCosmetics, and unlockCollectionTraits
+    // have been removed until verified SQL queries are available.
 }
 
 export default new SaveGameManager();

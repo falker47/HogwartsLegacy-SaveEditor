@@ -206,28 +206,30 @@ export class SaveGameDB {
     }
 
     async unlockAllConjurations(): Promise<void> {
-        return this.unlockCollectionCategory('Conjurations');
-    }
-
-    async unlockRevelioPages(): Promise<void> {
-        return this.unlockCollectionCategory('RevelioPages');
-    }
-
-    async unlockCosmetics(): Promise<void> {
-        await this.unlockCollectionCategory('Appearances');
-        await this.unlockCollectionCategory('WandHandles');
-    }
-
-    async unlockTraits(): Promise<void> {
-        return this.unlockCollectionCategory('Traits');
-    }
-
-    async unlockCollectionCategory(categoryID: string): Promise<void> {
         const db = await this.#gameDB;
-        db.exec(`UPDATE CollectionDynamic SET ItemState = 'Obtained', UpdateTime = '-2108045320' WHERE CategoryID = $category AND ItemState <> 'Obtained'`, {
-            $category: categoryID
-        });
+
+        // Step 1: Update CollectionDynamic to mark all Conjurations as Obtained
+        db.exec(`UPDATE CollectionDynamic SET ItemState = 'Obtained', UpdateTime = '-2108045320' WHERE CategoryID = 'Conjurations' AND ItemState <> 'Obtained'`);
+
+        // Step 2: Insert missing loot items into LootItemsDynamic
+        // This creates the "Recipe_Transfiguration_" records that the game checks
+        db.exec(`
+            INSERT INTO LootItemsDynamic (ItemID, Looted, ItemRandomWeight, ItemAdjustedWeight, Variation)
+            SELECT DISTINCT 
+                'Recipe_Transfiguration_' || ItemID AS ItemID,
+                1 AS Looted,
+                0 AS ItemRandomWeight,
+                0 AS ItemAdjustedWeight,
+                NULL AS Variation
+            FROM CollectionDynamic 
+            WHERE CategoryID = 'Conjurations' 
+            AND ('Recipe_Transfiguration_' || ItemID) NOT IN (SELECT DISTINCT ItemID FROM LootItemsDynamic WHERE ItemID IS NOT NULL)
+        `);
     }
+
+    // Note: RevelioPages, Cosmetics, and Traits unlocks have been removed.
+    // They require verified SQL queries specific to those categories.
+    // The simple CollectionDynamic UPDATE was not sufficient.
 
     async getDBBytes(): Promise<Uint8Array> {
         const db = await this.#gameDB;

@@ -28,7 +28,7 @@
   <div class="d-flex flex-column ma-5">
     <v-card class="mb-5 bg-grey-darken-4">
       <v-card-title class="text-h5">Collection Unlocks</v-card-title>
-      <v-card-subtitle>Instantly complete collections for 100% completion challenges.</v-card-subtitle>
+      <v-card-subtitle>Instantly complete collections for Field Guide challenges.</v-card-subtitle>
       <v-card-text>
         <v-alert type="info" variant="tonal" class="mb-4">
           These actions unlock items in your <strong>Field Guide</strong>. 
@@ -38,25 +38,7 @@
     </v-card>
 
     <v-row>
-      <!-- Field Guide -->
-      <v-col cols="12" md="6">
-        <v-card height="100%">
-          <v-card-title>Field Guide Pages</v-card-title>
-          <v-card-text>
-            Unlock all "Revelio Pages" lore entries.
-            <div class="text-caption text-grey">Great for leveling up and challenges.</div>
-          </v-card-text>
-          <v-card-actions>
-            <v-btn block color="primary" variant="tonal" :loading="isWorking"
-              prepend-icon="mdi-book-open-page-variant"
-              @click="performUnlock('Field Guide Pages', () => SaveGameManager.unlockRevelioPages())">
-              UNLOCK PAGES
-            </v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-col>
-
-      <!-- Conjurations -->
+      <!-- Conjurations (VERIFIED WORKING) -->
       <v-col cols="12" md="6">
         <v-card height="100%">
           <v-card-title>Room of Requirement</v-card-title>
@@ -74,39 +56,14 @@
         </v-card>
       </v-col>
 
-      <!-- Cosmetics -->
+      <!-- Coming Soon Placeholder -->
       <v-col cols="12" md="6">
-        <v-card height="100%">
-          <v-card-title>Cosmetics</v-card-title>
-          <v-card-text>
-            Unlock all Appearances and Wand Handles.
-            <div class="text-caption text-grey">Access all transmogs and wand skins.</div>
+        <v-card height="100%" class="bg-grey-darken-3">
+          <v-card-title class="text-grey">More Coming Soon</v-card-title>
+          <v-card-text class="text-grey-darken-1">
+            Additional unlock features (Field Guide Pages, Cosmetics, Traits) 
+            require verified database queries and will be added in future updates.
           </v-card-text>
-          <v-card-actions>
-            <v-btn block color="pink" variant="tonal" :loading="isWorking"
-              prepend-icon="mdi-tshirt-crew"
-              @click="performUnlock('Cosmetics', () => SaveGameManager.unlockCosmetics())">
-              UNLOCK COSMETICS
-            </v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-col>
-
-      <!-- Traits -->
-      <v-col cols="12" md="6">
-        <v-card height="100%">
-          <v-card-title>Traits</v-card-title>
-          <v-card-text>
-            Unlock all Gear Traits (Level I, II, III).
-            <div class="text-caption text-grey">Available to apply at the Loom.</div>
-          </v-card-text>
-          <v-card-actions>
-            <v-btn block color="orange" variant="tonal" :loading="isWorking"
-              prepend-icon="mdi-shield-star"
-              @click="performUnlock('Traits', () => SaveGameManager.unlockCollectionTraits())">
-              UNLOCK TRAITS
-            </v-btn>
-          </v-card-actions>
         </v-card>
       </v-col>
     </v-row>
