@@ -226,8 +226,15 @@ class SaveGameManager {
         await AppStateRA.saveGameDB.unlockAllConjurations();
     }
 
-    // Note: unlockRevelioPages, unlockCosmetics, and unlockCollectionTraits
-    // have been removed until verified SQL queries are available.
+    async unlockAppearances(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
+        await AppStateRA.saveGameDB.unlockAppearances();
+    }
+
+    async unlockRevelioPages(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
+        await AppStateRA.saveGameDB.unlockRevelioPages();
+    }
 }
 
 export default new SaveGameManager();

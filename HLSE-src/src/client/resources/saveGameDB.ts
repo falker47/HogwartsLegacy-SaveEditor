@@ -227,9 +227,49 @@ export class SaveGameDB {
         `);
     }
 
-    // Note: RevelioPages, Cosmetics, and Traits unlocks have been removed.
-    // They require verified SQL queries specific to those categories.
-    // The simple CollectionDynamic UPDATE was not sufficient.
+    async unlockAppearances(): Promise<void> {
+        const db = await this.#gameDB;
+
+        // Step 1: Update CollectionDynamic for Appearances
+        db.exec(`UPDATE CollectionDynamic SET ItemState = 'Obtained', UpdateTime = '-2108045320' WHERE CategoryID = 'Appearances' AND ItemState <> 'Obtained'`);
+
+        // Step 2: Insert appearance items into LootItemsDynamic
+        // Appearances may use the ItemID directly or with a prefix
+        db.exec(`
+            INSERT INTO LootItemsDynamic (ItemID, Looted, ItemRandomWeight, ItemAdjustedWeight, Variation)
+            SELECT DISTINCT 
+                ItemID,
+                1 AS Looted,
+                0 AS ItemRandomWeight,
+                0 AS ItemAdjustedWeight,
+                NULL AS Variation
+            FROM CollectionDynamic 
+            WHERE CategoryID = 'Appearances' 
+            AND ItemID NOT IN (SELECT DISTINCT ItemID FROM LootItemsDynamic WHERE ItemID IS NOT NULL)
+        `);
+    }
+
+    async unlockRevelioPages(): Promise<void> {
+        const db = await this.#gameDB;
+
+        // Update CollectionDynamic for RevelioPages (Field Guide Pages)
+        // RevelioPages are simpler - they may only need the CollectionDynamic update
+        db.exec(`UPDATE CollectionDynamic SET ItemState = 'Obtained', UpdateTime = '-2108045320' WHERE CategoryID = 'RevelioPages' AND ItemState <> 'Obtained'`);
+
+        // Also insert into LootItemsDynamic just in case the game checks it
+        db.exec(`
+            INSERT INTO LootItemsDynamic (ItemID, Looted, ItemRandomWeight, ItemAdjustedWeight, Variation)
+            SELECT DISTINCT 
+                ItemID,
+                1 AS Looted,
+                0 AS ItemRandomWeight,
+                0 AS ItemAdjustedWeight,
+                NULL AS Variation
+            FROM CollectionDynamic 
+            WHERE CategoryID = 'RevelioPages' 
+            AND ItemID NOT IN (SELECT DISTINCT ItemID FROM LootItemsDynamic WHERE ItemID IS NOT NULL)
+        `);
+    }
 
     async getDBBytes(): Promise<Uint8Array> {
         const db = await this.#gameDB;

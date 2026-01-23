@@ -56,14 +56,39 @@
         </v-card>
       </v-col>
 
-      <!-- Coming Soon Placeholder -->
+      <!-- Appearances -->
       <v-col cols="12" md="6">
-        <v-card height="100%" class="bg-grey-darken-3">
-          <v-card-title class="text-grey">More Coming Soon</v-card-title>
-          <v-card-text class="text-grey-darken-1">
-            Additional unlock features (Field Guide Pages, Cosmetics, Traits) 
-            require verified database queries and will be added in future updates.
+        <v-card height="100%">
+          <v-card-title>Appearances</v-card-title>
+          <v-card-text>
+            Unlock all character appearances and outfit variations.
+            <div class="text-caption text-grey">Complete your Cosmetics collection.</div>
           </v-card-text>
+          <v-card-actions>
+            <v-btn block color="pink" variant="tonal" :loading="isWorking"
+              prepend-icon="mdi-tshirt-crew"
+              @click="performUnlock('Appearances', () => SaveGameManager.unlockAppearances())">
+              UNLOCK APPEARANCES
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-col>
+
+      <!-- Field Guide Pages -->
+      <v-col cols="12" md="6">
+        <v-card height="100%">
+          <v-card-title>Field Guide Pages</v-card-title>
+          <v-card-text>
+            Unlock all Revelio Pages lore entries.
+            <div class="text-caption text-grey">Great for leveling up and challenges.</div>
+          </v-card-text>
+          <v-card-actions>
+            <v-btn block color="primary" variant="tonal" :loading="isWorking"
+              prepend-icon="mdi-book-open-page-variant"
+              @click="performUnlock('Field Guide Pages', () => SaveGameManager.unlockRevelioPages())">
+              UNLOCK PAGES
+            </v-btn>
+          </v-card-actions>
         </v-card>
       </v-col>
     </v-row>
