@@ -93,6 +93,44 @@
       </v-col>
     </v-row>
 
+    <v-row>
+      <!-- Wand Handles -->
+      <v-col cols="12" md="6">
+        <v-card height="100%">
+          <v-card-title>Wand Handles</v-card-title>
+          <v-card-text>
+            Unlock all Wand Handles variations.
+            <div class="text-caption text-grey">Customize your wand's appearance.</div>
+          </v-card-text>
+          <v-card-actions>
+            <v-btn block color="brown" variant="tonal" :loading="isWorking"
+              prepend-icon="mdi-auto-fix"
+              @click="performUnlock('Wand Handles', () => SaveGameManager.unlockWandHandles())">
+              UNLOCK HANDLES
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-col>
+
+      <!-- Traits -->
+      <v-col cols="12" md="6">
+        <v-card height="100%">
+          <v-card-title>Traits</v-card-title>
+          <v-card-text>
+            Unlock all Gear Traits (Level I, II, III).
+            <div class="text-caption text-grey">Available to apply at the Loom.</div>
+          </v-card-text>
+          <v-card-actions>
+            <v-btn block color="orange" variant="tonal" :loading="isWorking"
+              prepend-icon="mdi-shield-star"
+              @click="performUnlock('Traits', () => SaveGameManager.unlockCollectionTraits())">
+              UNLOCK TRAITS
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-col>
+    </v-row>
+
     <v-snackbar v-model="showSuccess" color="success" timeout="3000">
       {{ successMessage }}
       <template v-slot:actions>

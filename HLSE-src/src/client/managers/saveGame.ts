@@ -235,6 +235,16 @@ class SaveGameManager {
         if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
         await AppStateRA.saveGameDB.unlockRevelioPages();
     }
+
+    async unlockWandHandles(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
+        await AppStateRA.saveGameDB.unlockWandHandles();
+    }
+
+    async unlockCollectionTraits(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
+        await AppStateRA.saveGameDB.unlockTraits();
+    }
 }
 
 export default new SaveGameManager();

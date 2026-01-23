@@ -271,6 +271,50 @@ export class SaveGameDB {
         `);
     }
 
+    async unlockWandHandles(): Promise<void> {
+        const db = await this.#gameDB;
+
+        // Update CollectionDynamic for Wand Handles
+        db.exec(`UPDATE CollectionDynamic SET ItemState = 'Obtained', UpdateTime = '-2108045320' WHERE CategoryID = 'WandHandles' AND ItemState <> 'Obtained'`);
+
+        // Insert into LootItemsDynamic
+        db.exec(`
+            INSERT INTO LootItemsDynamic (ItemID, Looted, ItemRandomWeight, ItemAdjustedWeight, Variation)
+            SELECT DISTINCT 
+                ItemID,
+                1 AS Looted,
+                0 AS ItemRandomWeight,
+                0 AS ItemAdjustedWeight,
+                NULL AS Variation
+            FROM CollectionDynamic 
+            WHERE CategoryID = 'WandHandles' 
+            AND ItemID NOT IN (SELECT DISTINCT ItemID FROM LootItemsDynamic WHERE ItemID IS NOT NULL)
+        `);
+    }
+
+    async unlockTraits(): Promise<void> {
+        const db = await this.#gameDB;
+
+        // Update CollectionDynamic for Traits
+        db.exec(`UPDATE CollectionDynamic SET ItemState = 'Obtained', UpdateTime = '-2108045320' WHERE CategoryID = 'Traits' AND ItemState <> 'Obtained'`);
+
+        // Insert into LootItemsDynamic
+        // Traits collection items are what controls the visibility in the Collections menu
+        // The actual ability to use them is handled by LocksDynamic (Unlock Abilities page)
+        db.exec(`
+            INSERT INTO LootItemsDynamic (ItemID, Looted, ItemRandomWeight, ItemAdjustedWeight, Variation)
+            SELECT DISTINCT 
+                ItemID,
+                1 AS Looted,
+                0 AS ItemRandomWeight,
+                0 AS ItemAdjustedWeight,
+                NULL AS Variation
+            FROM CollectionDynamic 
+            WHERE CategoryID = 'Traits' 
+            AND ItemID NOT IN (SELECT DISTINCT ItemID FROM LootItemsDynamic WHERE ItemID IS NOT NULL)
+        `);
+    }
+
     async getDBBytes(): Promise<Uint8Array> {
         const db = await this.#gameDB;
         return db.export();

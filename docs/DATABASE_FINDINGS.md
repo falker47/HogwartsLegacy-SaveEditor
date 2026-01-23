@@ -49,13 +49,19 @@ To successfully unlock a collection item so it appears in the Field Guide and co
 *   **Loot Item Prefix**: None (Direct `ItemID`)
 *   **Observation**: Unlocks outfit visuals.
 
-## Future Candidates (Unverified)
-The following categories follow a similar pattern but require verification of their `CategoryID` and potential prefixes:
+### 4. Wand Handles (Cosmetics)
+*   **CategoryID**: `WandHandles`
+*   **Loot Item Prefix**: None (Direct `ItemID`)
+*   **Implementation**: Same multi-table pattern as Appearances.
 
-*   **Wand Handles**: Likely `CategoryID = 'WandHandles'`.
-*   **Traits**: Likely `CategoryID = 'Traits'`.
-*   **Enemies**: Likely just kill counters, might be in a different table (`AchievementDynamic`?).
-*   **Ingredients / Tools**: Might be standard inventory items rather than just collections.
+### 5. Traits (Gear Upgrades)
+*   **CategoryID**: `Traits`
+*   **Loot Item Prefix**: None (Direct `ItemID`)
+*   **Implementation**: Unlocks the trait in the Collections menu (requires `LootItemsDynamic` to show as found). Note: The *ability* to use traits is handled separately by `LocksDynamic`.
+
+## Future Candidates (Unverified)
+*   **Enemies**: Likely just kill counters.
+*   **Ingredients / Tools**: Might be standard inventory items.
 
 ## Thread Safety Note
 All database operations in the UI are now wrapped in thread-safe calls (`self.after` in Python) to prevent `_tkinter.TclError` crashes during lengthy updates or app shutdown.
