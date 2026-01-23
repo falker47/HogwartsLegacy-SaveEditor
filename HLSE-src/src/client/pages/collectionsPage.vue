@@ -103,7 +103,7 @@
           <v-card-actions>
             <v-btn block color="orange" variant="tonal" :loading="isWorking"
               prepend-icon="mdi-shield-star"
-              @click="performUnlock('Traits', () => SaveGameManager.unlockTraits())">
+              @click="performUnlock('Traits', () => SaveGameManager.unlockCollectionTraits())">
               UNLOCK TRAITS
             </v-btn>
           </v-card-actions>
