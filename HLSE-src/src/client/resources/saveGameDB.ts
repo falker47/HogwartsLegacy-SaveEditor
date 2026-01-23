@@ -23,7 +23,17 @@ export class SaveGameDB {
             locateFile: () => sqlJSWasmURL
         });
 
-        return new SQL.Database(this.#gameDBBytes);
+        const db = new SQL.Database(this.#gameDBBytes);
+
+        // Debug: Log existing Collection Categories
+        try {
+            const res = db.exec("SELECT CategoryID, COUNT(*) as Cnt FROM CollectionDynamic GROUP BY CategoryID");
+            console.log("[DEBUG] Categories found:", JSON.stringify(res, null, 2));
+        } catch (e) {
+            console.error("[DEBUG] Failed to query categories:", e);
+        }
+
+        return db;
     }
 
     #mapSqlResults<T>(sqlResults: initSqlJs.QueryExecResult, columnExtractList: string[] = []): T[] {
