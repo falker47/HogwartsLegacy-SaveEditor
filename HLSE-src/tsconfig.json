@@ -1,0 +1,35 @@
+{
+    "compilerOptions": {
+        "experimentalDecorators": true,
+        "incremental": true,
+        "allowJs": true,
+        "checkJs": true,
+        "tsBuildInfoFile": "dist/tsbuildinfo",
+        "target": "es2020",
+        "module": "commonjs",
+        "outDir": "./dist",
+        "rootDir": "src",
+        "strict": false,
+        "strictNullChecks": true,
+        "strictFunctionTypes": true,
+        "strictBindCallApply": true,
+        "strictPropertyInitialization": true,
+        "forceConsistentCasingInFileNames" : true,
+        "removeComments": true,
+        "noImplicitAny": false,
+        "alwaysStrict": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noFallthroughCasesInSwitch": true,
+        "moduleResolution": "node",
+        "resolveJsonModule": true,
+        "esModuleInterop": true,
+        "preserveSymlinks": true
+    },
+    "files": [
+        "src/server/server.ts"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}
