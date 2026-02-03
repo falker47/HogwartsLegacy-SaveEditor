@@ -27,10 +27,10 @@ TASKBAR_HEIGHT = 80
 MANAGER_WIDTH_RATIO = 0.45
 
 # Expected SHA256 hash of the trusted oo2core_9_win64.dll
-EXPECTED_DLL_HASH = "19452ae1abae65e1305d3818354d4fae7b1200294322f0d9c6d5ddeb7bd9f978"
+EXPECTED_DLL_HASH = "6f5d41a7892ea6b2db420f2458dad2f84a63901c9a93ce9497337b16c195f457"
 
 # DLL download URL
-DLL_DOWNLOAD_URL = "https://modding.wiki/hogwartslegacy/oo2core_9_win64.dll"
+DLL_DOWNLOAD_URL = "https://github.com/new-world-tools/go-oodle/releases/download/v0.2.3-files/oo2core_9_win64.dll"
 DLL_NAME = "oo2core_9_win64.dll"
 
 # Required files

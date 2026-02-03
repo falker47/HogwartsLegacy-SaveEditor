@@ -10,8 +10,9 @@ A modern, user-friendly GUI application for editing and managing Hogwarts Legacy
 
 ## ✨ Features
 
-- 📁 **Auto-detect** save files location
-- 🔍 **Auto-find** required DLL from game folder
+- 📁 **Auto-detect** save files location (with manual override)
+- ⚙️ **Configuration file** - remembers your last used folder
+- 🔍 **Auto-find** required DLL from game folder (non-blocking)
 - 🔓 **One-click** save extraction and editing
 - 🌐 **Integrated editor** - opens directly in the app
 - 💾 **Auto-save** - changes applied automatically when you click Download
@@ -48,7 +49,7 @@ The app will first try to **automatically find and copy** this file from your in
 2. Copy `oo2core_9_win64.dll`
 3. Paste it into the same folder as `HogwartsLegacy-SaveEditor.exe`
 
-> **Note:** If you cannot find the file, you can download it separately from [Modding Wiki](https://modding.wiki/hogwartslegacy/oo2core_9_win64.dll).
+> **Note:** If you cannot find the file, you can download it separately from [GitHub releases](https://github.com/new-world-tools/go-oodle/releases/download/v0.2.3-files/oo2core_9_win64.dll).
 
 ### Python Dependencies (for running from source)
 
@@ -117,6 +118,12 @@ HogwartsLegacy-SaveEditor/
 ```
 
 ## 🔄 Changelog
+
+### v1.03
+- **FIXED:** Startup freeze on some systems caused by aggressive DLL search.
+- **ADDED:** Configuration file (`config.json`) to save your preferred save directory.
+- **ADDED:** Manual "Deep Search" option for DLLs (no longer runs automatically).
+- **IMPROVED:** Updated DLL download source to a reliable GitHub repository.
 
 ### v1.02
 - FIXED: "500 Internal Server Error" on launch for some users.
