@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import multiprocessing
 import threading
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Tuple
@@ -109,6 +110,16 @@ def launch_editor_process(html_path: str, file_path: str, file_name: str,
                 """Close the editor window."""
                 if window_ref[0]:
                     window_ref[0].destroy()
+            
+            def log_frontend(self, level: str, message: str):
+                """Receive logs from frontend."""
+                try:
+                    # Sanitize message to prevent issues with pipe separator
+                    safe_msg = message.replace("|", "-").replace("\n", " ")
+                    write_status("log", f"[{level}] {safe_msg}")
+                    print(f"[Frontend {level}] {message}")
+                except Exception as e:
+                    print(f"Logging error: {e}")
         
         api = Api(file_path, file_name, original_save, hlsaves_path, app_dir)
         
@@ -137,6 +148,62 @@ def launch_editor_process(html_path: str, file_path: str, file_name: str,
         def on_loaded():
             js = """
             (function() {
+                // Setup Logging Bridge
+                function logToBackend(level, msg) {
+                    try {
+                        if (window.pywebview && window.pywebview.api) {
+                            window.pywebview.api.log_frontend(level, String(msg));
+                        }
+                    } catch (e) {
+                        // Fallback if backend not ready
+                    }
+                }
+
+                // Monkey-patch console
+                const originalLog = console.log;
+                const originalError = console.error;
+                const originalWarn = console.warn;
+
+                console.log = function(...args) {
+                    originalLog.apply(console, args);
+                    logToBackend('INFO', args.join(' '));
+                };
+                console.error = function(...args) {
+                    originalError.apply(console, args);
+                    logToBackend('ERROR', args.join(' '));
+                };
+                console.warn = function(...args) {
+                    originalWarn.apply(console, args);
+                    logToBackend('WARN', args.join(' '));
+                };
+
+                // Catch global errors
+                window.onerror = function(msg, url, line, col, error) {
+                    logToBackend('FATAL', `${msg} at ${line}:${col}`);
+                    return false;
+                };
+
+                // DB Inspection Helper
+                window.inspectDb = function() {
+                    logToBackend('DEBUG', 'Attempting DB inspection...');
+                    // Try to find the DB object. In many SQL.js apps it might be 'db'
+                    if (window.db) {
+                        try {
+                            const tables = window.db.exec("SELECT name FROM sqlite_master WHERE type='table'");
+                            if (tables && tables.length > 0 && tables[0].values) {
+                                const tableNames = tables[0].values.map(v => v[0]);
+                                logToBackend('DEBUG', 'Found tables: ' + tableNames.join(', '));
+                            } else {
+                                logToBackend('DEBUG', 'DB seems empty or query failed.');
+                            }
+                        } catch(e) {
+                            logToBackend('ERROR', 'DB Inspection failed: ' + e.message);
+                        }
+                    } else {
+                        logToBackend('WARN', 'Global "db" object not found.');
+                    }
+                };
+
                 // Auto-load file
                 async function tryLoad() {
                     if (typeof pywebview === 'undefined') {
@@ -161,6 +228,9 @@ def launch_editor_process(html_path: str, file_path: str, file_name: str,
                             dt.items.add(file);
                             input.files = dt.files;
                             input.dispatchEvent(new Event('change', {bubbles: true}));
+                            
+                            // Trigger inspection after a short delay to allow DB load
+                            setTimeout(window.inspectDb, 2000);
                         }
                     } catch(e) {
                         console.error('Auto-load failed:', e);
@@ -279,6 +349,10 @@ class App(BaseWindow):
         # Build UI
         self._create_ui()
         
+        # Load Config
+        self.config_file = self.app_dir / "config.json"
+        self.config = self._load_config()
+        
         # Verify files
         if not self._verify_required_files():
             # If crucial files are missing (and auto-recovery failed), 
@@ -287,10 +361,38 @@ class App(BaseWindow):
             # allowing the user to read the log or try again.
             pass
         
-        self._detect_save_directory()
+        # Directory detection logic
+        if self.config.get("save_directory") and Path(self.config["save_directory"]).exists():
+            self.save_directory = Path(self.config["save_directory"])
+            self.backup_dir = self.save_directory / "Backups"
+            self.backup_dir.mkdir(exist_ok=True)
+            self.path_label.configure(text=f".../{self.save_directory.name}")
+            self._log(f"📁 Loaded directory from config: {self.save_directory}")
+            self._refresh_save_list()
+        elif self.config.get("auto_detect_saves", True):
+            self._detect_save_directory()
+        else:
+             self._log("ℹ️ Auto-detect disabled. Please browse for save folder.")
+             self.path_label.configure(text="Select Folder")
+
+    def _load_config(self) -> dict:
+        if self.config_file.exists():
+            try:
+                with open(self.config_file, 'r') as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"Failed to load user config: {e}")
+        return {"auto_detect_saves": True}
+
+    def _save_config(self) -> None:
+        try:
+            with open(self.config_file, 'w') as f:
+                json.dump(self.config, f, indent=4)
+        except Exception as e:
+            print(f"Failed to save user config: {e}")
     
     # Expected SHA256 hash of the trusted oo2core_9_win64.dll
-    EXPECTED_DLL_HASH = "19452ae1abae65e1305d3818354d4fae7b1200294322f0d9c6d5ddeb7bd9f978"
+    EXPECTED_DLL_HASH = "6f5d41a7892ea6b2db420f2458dad2f84a63901c9a93ce9497337b16c195f457"
     
     def _verify_dll_hash(self, dll_path: Path) -> bool:
         """Verify the SHA256 hash of the DLL file."""
@@ -306,16 +408,16 @@ class App(BaseWindow):
             return False
     
     def _download_dll_from_web(self) -> bool:
-        """Download oo2core_9_win64.dll from modding.wiki and verify its hash."""
+        """Download oo2core_9_win64.dll from GitHub and verify its hash."""
         import urllib.request
         import urllib.error
         
         dll_name = "oo2core_9_win64.dll"
         target_path = self.app_dir / dll_name
-        download_url = "https://modding.wiki/hogwartslegacy/oo2core_9_win64.dll"
+        download_url = "https://github.com/new-world-tools/go-oodle/releases/download/v0.2.3-files/oo2core_9_win64.dll"
         
         try:
-            self._log("⬇️ Downloading DLL from modding.wiki...")
+            self._log("⬇️ Downloading DLL from GitHub...")
             urllib.request.urlretrieve(download_url, target_path)
             
             # Verify hash of downloaded file
@@ -335,7 +437,7 @@ class App(BaseWindow):
         except urllib.error.URLError as e:
             self._log(f"❌ Download failed: {e.reason}")
             messagebox.showwarning("Download Failed", 
-                f"Could not download from modding.wiki:\n{e.reason}\n\n"
+                f"Could not download from GitHub:\n{e.reason}\n\n"
                 "Please search for the DLL in your PC instead.")
             return False
         except Exception as e:
@@ -345,12 +447,11 @@ class App(BaseWindow):
                 "Please search for the DLL in your PC instead.")
             return False
     
-    def _find_and_copy_dll(self) -> bool:
-        """Attempt to find and copy oo2core_9_win64.dll from ANY game installation."""
+    def _find_dll_fast(self) -> bool:
+        """Check specific hardcoded paths for the DLL (Fast)."""
         dll_name = "oo2core_9_win64.dll"
         target_path = self.app_dir / dll_name
         
-        # 1. Check specific hardcoded paths first (fastest)
         fast_paths = [
             Path(r"C:\Program Files (x86)\Steam\steamapps\common\Hogwarts Legacy\Engine\Binaries\ThirdParty\Oodle\Win64\oo2core_9_win64.dll"),
             Path(r"C:\Program Files\Epic Games\Hogwarts Legacy\Engine\Binaries\ThirdParty\Oodle\Win64\oo2core_9_win64.dll"),
@@ -365,9 +466,12 @@ class App(BaseWindow):
                     return True
                 except Exception as e:
                     print(f"Failed to copy from {path}: {e}")
+        return False
 
-        # 2. Dynamic Search in Library Roots
-        # We look for common library folder structures across all potential drives
+    def _find_dll_deep_search(self) -> bool:
+        """Deep search for the DLL (Slow). ONLY call this with user permission."""
+        dll_name = "oo2core_9_win64.dll"
+        target_path = self.app_dir / dll_name
         
         drives = [f"{d}:\\" for d in "CDEFGHIJKLMNOPQRSTUVWXYZ" if os.path.exists(f"{d}:\\")]
         search_roots = []
@@ -382,26 +486,19 @@ class App(BaseWindow):
 
         print("🔍 Starting deep search for DLL in game libraries...")
         self._log("🔍 Searching for DLL in game libraries... this may take a moment.")
+        self.update() # Force UI update before freeze
         
         for root in search_roots:
             if not root.exists():
                 continue
                 
             print(f"Scanning root: {root}")
-            # Search pattern: look for the DLL in any subdirectory
-            # We limit depth slightly by iterating games then looking for the specific subpath pattern or just the file
-            # Since the file is usually deep in Engine/Binaries/..., we trust rglob but check valid folders
-            
             try:
-                # Iterate over each game folder in the root to avoid scanning unrelated stuff
-                # This is safer than a raw rglob on the root which might be huge
+                # Iterate over each game folder in the root
                 for game_dir in root.iterdir():
                     if not game_dir.is_dir():
                         continue
                         
-                    # Now search inside this game directory
-                    # We expect it in Engine/Binaries/ThirdParty/Oodle/Win64/ usually
-                    # But user said FC26 has it, so we trust the filename
                     found = list(game_dir.rglob(dll_name))
                     
                     if found:
@@ -444,8 +541,8 @@ class App(BaseWindow):
             if dll.exists():
                 return True
                 
-            # If not found, try auto-discovery from game installations
-            if self._find_and_copy_dll():
+            # If not found, try FAST auto-discovery only
+            if self._find_dll_fast():
                 return True
                 
             # If still not found, we BLOCK here and offer options
@@ -455,7 +552,7 @@ class App(BaseWindow):
             msg += "The file 'oo2core_9_win64.dll' was not found.\n"
             msg += "The app CANNOT work without it.\n\n"
             msg += "Click 'Yes' to DOWNLOAD it (with hash verification)\n"
-            msg += "Click 'No' to SEARCH your PC for the file\n"
+            msg += "Click 'No' to SEARCH your PC for the file (May take time)\n"
             msg += "Click 'Cancel' to EXIT\n\n"
             msg += f"App Folder: {self.app_dir}\n"
             
@@ -468,9 +565,9 @@ class App(BaseWindow):
                 if self._download_dll_from_web():
                     return True
                 # If download failed, loop continues to let user try again or search PC
-            else:  # No -> Search PC
-                self._log("🔍 Searching for DLL on your PC...")
-                if self._find_and_copy_dll():
+            else:  # No -> Search PC (Explicit user action required)
+                self._log("🔍 Deep search initiated by user...")
+                if self._find_dll_deep_search():
                     return True
                 else:
                     # Offer manual file selection
@@ -657,6 +754,11 @@ class App(BaseWindow):
             self.backup_dir.mkdir(exist_ok=True)
             self.path_label.configure(text=f".../{self.save_directory.name}")
             self._log("📁 Directory set.")
+            
+            # Save to config
+            self.config["save_directory"] = str(self.save_directory)
+            self._save_config()
+            
             self._refresh_save_list()
     
     def _refresh_save_list(self) -> None:
@@ -833,6 +935,13 @@ class App(BaseWindow):
                                             self._refresh_save_list()
                                         elif status == "error":
                                             self._log(f"❌ Error: {message}")
+                                        elif status == "log":
+                                            # Filter out noisy logs if needed, or show all
+                                            if "Found tables" in message or "FATAL" in message or "ERROR" in message:
+                                                 self._log(f"{message}")
+                                            else:
+                                                # Optional: print to console only for INFO
+                                                print(f"[FE] {message}")
                             except:
                                 pass
                             
