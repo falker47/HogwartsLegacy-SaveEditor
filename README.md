@@ -34,7 +34,7 @@ A modern, user-friendly GUI application for editing and managing Hogwarts Legacy
 The app will first try to **automatically find and copy** this file from your installed games (e.g., Hogwarts Legacy).
 
 **If auto-detection fails**, the app will offer to **Download** the file automatically:
-1. Click **Yes** to download the official DLL from Modding Wiki.
+1. Click **Yes** to download the official DLL from GitHub.
    - The app verifies the file's integrity (SHA256) automatically.
 2. If download fails, you can click **No** to search your PC or select the file manually.
 
@@ -149,6 +149,9 @@ Backups are saved in:
 
 ### Developer
 - **falker47** - Application development
+
+### Contributors
+- **Hawk-on** - Code refactoring and quality improvements on the html
 
 ### Special Thanks
 - **Katt** - [hlsaves.exe](https://www.nexusmods.com/hogwartslegacy/mods/99) (MIT License)
