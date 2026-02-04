@@ -74,8 +74,8 @@
      */
     function interceptDownloads() {
         document.addEventListener('click', async function (e) {
-            const target = e.target;
-            if (target.tagName !== 'A' || !target.hasAttribute('download')) {
+            const target = e.target.closest('a');
+            if (!target || !target.hasAttribute('download')) {
                 return;
             }
 
