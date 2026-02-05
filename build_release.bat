@@ -61,6 +61,7 @@ echo [4/5] Preparing release package...
 copy /Y dist\HogwartsLegacy-SaveEditor.exe %RELEASE_DIR%\ >nul
 copy /Y HLSGE.html %RELEASE_DIR%\ >nul 2>&1
 copy /Y hlsaves.exe %RELEASE_DIR%\ >nul 2>&1
+xcopy /E /I /Y assets %RELEASE_DIR%\assets >nul 2>&1
 
 :: Create user README
 echo [5/5] Creating README...
