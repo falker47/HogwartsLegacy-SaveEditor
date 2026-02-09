@@ -64,12 +64,14 @@ class App(BaseWindow):
 
         # Paths
         if getattr(sys, 'frozen', False):
-            self.app_dir = Path(sys.executable).parent
+            # When frozen, use the folder containing the executable
+            self.app_dir = Path(sys.executable).parent.resolve()
         else:
-            self.app_dir = Path(os.path.dirname(os.path.abspath(__file__))).parent
+            # When running from source, use the parent folder of 'src'
+            self.app_dir = Path(os.path.dirname(os.path.abspath(__file__))).parent.resolve()
 
-        self.hlsaves_exe = self.app_dir / HLSAVES_EXE
-        self.hlsge_html = self.app_dir / HLSGE_HTML
+        self.hlsaves_exe = self.app_dir / "assets" / HLSAVES_EXE
+        self.hlsge_html = self.app_dir / "assets" / HLSGE_HTML
         self.temp_dir = self.app_dir / "temp"
 
         # Backup dir will be set after detecting save directory
@@ -143,7 +145,7 @@ class App(BaseWindow):
 
     def _download_dll_from_web(self) -> bool:
         """Download oo2core_9_win64.dll from GitHub and verify its hash."""
-        target_path = self.app_dir / DLL_NAME
+        target_path = self.app_dir / "assets" / DLL_NAME
 
         try:
             self._log("⬇️ Downloading DLL from GitHub...")
@@ -178,7 +180,7 @@ class App(BaseWindow):
 
     def _find_dll_fast(self) -> bool:
         """Check specific hardcoded paths for the DLL (Fast)."""
-        target_path = self.app_dir / DLL_NAME
+        target_path = self.app_dir / "assets" / DLL_NAME
 
         # Check specific hardcoded paths first (fastest)
         fast_paths = [
@@ -201,7 +203,7 @@ class App(BaseWindow):
 
     def _find_dll_deep_search(self) -> bool:
         """Deep search for the DLL (Slow). ONLY call this with user permission."""
-        target_path = self.app_dir / DLL_NAME
+        target_path = self.app_dir / "assets" / DLL_NAME
 
         # Dynamic search in library roots
         drives = [f"{d}:\\" for d in "CDEFGHIJKLMNOPQRSTUVWXYZ" if os.path.exists(f"{d}:\\")]
@@ -269,13 +271,13 @@ class App(BaseWindow):
             msg = "Missing files:\n\n"
             for f, d in missing:
                 msg += f"❌ {f} - {d}\n"
-            msg += f"\nPlace in: {self.app_dir}"
+            msg += f"\nPlace in: {self.app_dir / 'assets'}"
             messagebox.showerror("Missing Files", msg)
             return False
 
         # Blocking DLL check
         while True:
-            dll = self.app_dir / DLL_NAME
+            dll = self.app_dir / "assets" / DLL_NAME
 
             if dll.exists():
                 return True
@@ -320,6 +322,8 @@ class App(BaseWindow):
 
                     if file_path and Path(file_path).name.lower() == DLL_NAME.lower():
                         try:
+                            # Ensure assets folder exists
+                            (self.app_dir / "assets").mkdir(exist_ok=True)
                             shutil.copy2(file_path, dll)
                             self._log(f"✅ DLL copied from: {file_path}")
                             messagebox.showinfo("Success", "DLL file copied successfully!")

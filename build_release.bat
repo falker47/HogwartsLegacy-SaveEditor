@@ -4,12 +4,36 @@ echo   Hogwarts Legacy Save Editor - Release Builder
 echo ================================================
 echo.
 
-:: Check Python
-python --version >nul 2>&1
-if errorlevel 1 (
-    echo ERROR: Python not found.
+:: Check Python and Pip
+:: Prefer Python 3.12 if available as 3.13 on this system seems to have prefix issues
+set PYTHON_CMD=
+py -3.12 --version >nul 2>&1
+if not errorlevel 1 (
+    set PYTHON_CMD=py -3.12
+) else (
+    python --version >nul 2>&1
+    if not errorlevel 1 (
+        set PYTHON_CMD=python
+    ) else (
+        py --version >nul 2>&1
+        if not errorlevel 1 (
+            set PYTHON_CMD=py
+        )
+    )
+)
+
+if "%PYTHON_CMD%"=="" (
+    echo ERROR: Python not found. Please install Python or add it to PATH.
     pause
     exit /b 1
+)
+
+:: Check for Pip
+%PYTHON_CMD% -m pip --version >nul 2>&1
+if errorlevel 1 (
+    echo WARNING: Pip not found for %PYTHON_CMD%. 
+    echo Please run: %PYTHON_CMD% -m ensurepip
+    echo Or install Pip manually.
 )
 
 :: Create release folder
@@ -19,12 +43,12 @@ mkdir %RELEASE_DIR%
 
 :: Install dependencies
 echo [1/5] Installing dependencies...
-pip install -r requirements.txt >nul 2>&1
-pip install pyinstaller >nul 2>&1
+%PYTHON_CMD% -m pip install -r requirements.txt
+%PYTHON_CMD% -m pip install pyinstaller
 
 :: Find tkinterdnd2 path
 echo [2/5] Locating libraries...
-for /f "delims=" %%i in ('python -c "import tkinterdnd2; import os; print(os.path.dirname(tkinterdnd2.__file__))"') do set TKDND_PATH=%%i
+for /f "delims=" %%i in ('%PYTHON_CMD% -c "import tkinterdnd2; import os; print(os.path.dirname(tkinterdnd2.__file__))"') do set TKDND_PATH=%%i
 
 if "%TKDND_PATH%"=="" (
     echo WARNING: tkinterdnd2 not found, building without drag-drop support
@@ -35,7 +59,7 @@ if "%TKDND_PATH%"=="" (
 
 :: Build executable
 echo [3/5] Building executable...
-python -m PyInstaller --onefile --windowed ^
+%PYTHON_CMD% -m PyInstaller --onefile --windowed ^
     --name "HogwartsLegacy-SaveEditor" ^
     %TKDND_ARGS% ^
     --add-data "src;src" ^
@@ -59,9 +83,9 @@ if not exist dist\HogwartsLegacy-SaveEditor.exe (
 :: Copy files to release folder
 echo [4/5] Preparing release package...
 copy /Y dist\HogwartsLegacy-SaveEditor.exe %RELEASE_DIR%\ >nul
-copy /Y HLSGE.html %RELEASE_DIR%\ >nul 2>&1
-copy /Y hlsaves.exe %RELEASE_DIR%\ >nul 2>&1
 xcopy /E /I /Y assets %RELEASE_DIR%\assets >nul 2>&1
+copy /Y HLSGE.html %RELEASE_DIR%\assets\ >nul 2>&1
+copy /Y hlsaves.exe %RELEASE_DIR%\assets\ >nul 2>&1
 
 :: Create user README
 echo [5/5] Creating README...
@@ -84,11 +108,9 @@ echo. >> %RELEASE_DIR%\README.txt
     echo    You CANNOT use the app until this file is found/downloaded. >> %RELEASE_DIR%\README.txt
     echo. >> %RELEASE_DIR%\README.txt
     echo    MANUAL DLL SETUP (If download fails): >> %RELEASE_DIR%\README.txt
-    echo    Copy 'oo2core_9_win64.dll' from: >> %RELEASE_DIR%\README.txt
-    echo    Steam:      C:\Program Files (x86)\Steam\steamapps\common\Hogwarts Legacy\Engine\Binaries\ThirdParty\Oodle\Win64\ >> %RELEASE_DIR%\README.txt
-    echo    Epic Games: C:\Program Files\Epic Games\Hogwarts Legacy\Engine\Binaries\ThirdParty\Oodle\Win64\ >> %RELEASE_DIR%\README.txt
+    echo    Copy 'oo2core_9_win64.dll' from your games folder >> %RELEASE_DIR%\README.txt
     echo    - Copy 'oo2core_9_win64.dll' >> %RELEASE_DIR%\README.txt
-    echo    - Paste it into the same folder as this app >> %RELEASE_DIR%\README.txt
+    echo    - Paste it into the 'assets' folder of this app >> %RELEASE_DIR%\README.txt
 echo. >> %RELEASE_DIR%\README.txt
 echo 2. RUN THE APP: >> %RELEASE_DIR%\README.txt
 echo    Double-click 'HogwartsLegacy-SaveEditor.exe' >> %RELEASE_DIR%\README.txt
@@ -101,9 +123,9 @@ echo   REQUIRED FILES >> %RELEASE_DIR%\README.txt
 echo ============================================ >> %RELEASE_DIR%\README.txt
 echo. >> %RELEASE_DIR%\README.txt
 echo [x] HogwartsLegacy-SaveEditor.exe - This app >> %RELEASE_DIR%\README.txt
-echo [x] HLSGE.html - Save editor >> %RELEASE_DIR%\README.txt
-echo [x] hlsaves.exe - Compression tool >> %RELEASE_DIR%\README.txt
-echo [?] oo2core_9_win64.dll - Auto-detected or manual copy >> %RELEASE_DIR%\README.txt
+echo [x] assets\HLSGE.html - Save editor >> %RELEASE_DIR%\README.txt
+echo [x] assets\hlsaves.exe - Compression tool >> %RELEASE_DIR%\README.txt
+echo [?] assets\oo2core_9_win64.dll - Auto-detected or manual copy >> %RELEASE_DIR%\README.txt
 echo. >> %RELEASE_DIR%\README.txt
 echo ============================================ >> %RELEASE_DIR%\README.txt
 echo. >> %RELEASE_DIR%\README.txt
@@ -131,9 +153,9 @@ echo Release folder: %RELEASE_DIR%\
 echo.
 echo Contents:
 if exist %RELEASE_DIR%\HogwartsLegacy-SaveEditor.exe (echo   [OK] HogwartsLegacy-SaveEditor.exe) else (echo   [!!] HogwartsLegacy-SaveEditor.exe - MISSING)
-if exist %RELEASE_DIR%\HLSGE.html (echo   [OK] HLSGE.html) else (echo   [!!] HLSGE.html - MISSING - Add manually)
-if exist %RELEASE_DIR%\hlsaves.exe (echo   [OK] hlsaves.exe) else (echo   [!!] hlsaves.exe - MISSING - Add manually)
-echo   [!!] oo2core_9_win64.dll - User must add from game
+if exist %RELEASE_DIR%\assets\HLSGE.html (echo   [OK] assets\HLSGE.html) else (echo   [!!] assets\HLSGE.html - MISSING - Add manually)
+if exist %RELEASE_DIR%\assets\hlsaves.exe (echo   [OK] assets\hlsaves.exe) else (echo   [!!] assets\hlsaves.exe - MISSING - Add manually)
+echo   [!!] assets\oo2core_9_win64.dll - User must add from game
 echo.
 echo To create ZIP for distribution:
 echo   1. Add any missing files to 'release' folder

@@ -20,6 +20,11 @@ venv/
 env/
 ENV/
 .venv/
+Lib/
+Scripts/
+Include/
+share/
+pyvenv.cfg
 
 # IDE
 .idea/
