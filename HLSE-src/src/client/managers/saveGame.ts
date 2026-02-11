@@ -245,6 +245,77 @@ class SaveGameManager {
         if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
         await AppStateRA.saveGameDB.unlockTraits();
     }
+
+    // --- Lock All Methods (Abilities) ---
+
+    async lockFastTravelPoints(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
+        for (const lockItem of FastTravelLocks) {
+            // eslint-disable-next-line no-await-in-loop
+            await AppStateRA.saveGameDB.updateLockState({ LockID: lockItem.LockID, LockValue: '1', RecordExists: true });
+            // eslint-disable-next-line no-await-in-loop
+            await AppStateRA.saveGameDB.insertUpdateMapItem(lockItem.LockID, 8);
+        }
+    }
+
+    async lockTransfigurationItems(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
+        for (const lockItem of TransFigurationLocks) {
+            // eslint-disable-next-line no-await-in-loop
+            await AppStateRA.saveGameDB.updateLockState({ LockID: lockItem.LockID, LockValue: '1', RecordExists: true });
+        }
+    }
+
+    async lockSpells(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
+        for (const lockItem of SpellLocks) {
+            // eslint-disable-next-line no-await-in-loop
+            await AppStateRA.saveGameDB.updateLockState({ LockID: lockItem.LockID, LockValue: '1', RecordExists: true });
+        }
+    }
+
+    async lockGear(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
+        for (const lockItem of GearLocks) {
+            // eslint-disable-next-line no-await-in-loop
+            await AppStateRA.saveGameDB.updateLockState({ LockID: lockItem.LockID, LockValue: '1', RecordExists: true });
+        }
+    }
+
+    async lockTraits(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
+        for (const lockItem of TraitLocks) {
+            // eslint-disable-next-line no-await-in-loop
+            await AppStateRA.saveGameDB.updateLockState({ LockID: lockItem.LockID, LockValue: '1', RecordExists: true });
+        }
+    }
+
+    // --- Lock All Methods (Collections) ---
+
+    async lockAllConjurations(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
+        await AppStateRA.saveGameDB.lockAllConjurations();
+    }
+
+    async lockAppearances(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
+        await AppStateRA.saveGameDB.lockAppearances();
+    }
+
+    async lockRevelioPages(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
+        await AppStateRA.saveGameDB.lockRevelioPages();
+    }
+
+    async lockWandHandles(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
+        await AppStateRA.saveGameDB.lockWandHandles();
+    }
+
+    async lockCollectionTraits(): Promise<void> {
+        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) { return; }
+        await AppStateRA.saveGameDB.lockTraits();
+    }
 }
 
 export default new SaveGameManager();

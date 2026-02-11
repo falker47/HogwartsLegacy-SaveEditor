@@ -325,6 +325,51 @@ export class SaveGameDB {
         `);
     }
 
+    async lockAllConjurations(): Promise<void> {
+        const db = await this.#gameDB;
+        db.exec(`UPDATE CollectionDynamic SET ItemState = 'NotObtained' WHERE CategoryID = 'Conjurations'`);
+        db.exec(`
+            DELETE FROM LootItemsDynamic 
+            WHERE ItemID LIKE 'Recipe_Transfiguration_%'
+        `);
+    }
+
+    async lockAppearances(): Promise<void> {
+        const db = await this.#gameDB;
+        db.exec(`UPDATE CollectionDynamic SET ItemState = 'NotObtained' WHERE CategoryID = 'Appearances'`);
+        db.exec(`
+            DELETE FROM LootItemsDynamic 
+            WHERE ItemID IN (SELECT ItemID FROM CollectionDynamic WHERE CategoryID = 'Appearances')
+        `);
+    }
+
+    async lockRevelioPages(): Promise<void> {
+        const db = await this.#gameDB;
+        db.exec(`UPDATE CollectionDynamic SET ItemState = 'NotObtained' WHERE CategoryID = 'RevelioPages'`);
+        db.exec(`
+            DELETE FROM LootItemsDynamic 
+            WHERE ItemID IN (SELECT ItemID FROM CollectionDynamic WHERE CategoryID = 'RevelioPages')
+        `);
+    }
+
+    async lockWandHandles(): Promise<void> {
+        const db = await this.#gameDB;
+        db.exec(`UPDATE CollectionDynamic SET ItemState = 'NotObtained' WHERE CategoryID = 'WandHandles'`);
+        db.exec(`
+            DELETE FROM LootItemsDynamic 
+            WHERE ItemID IN (SELECT ItemID FROM CollectionDynamic WHERE CategoryID = 'WandHandles')
+        `);
+    }
+
+    async lockTraits(): Promise<void> {
+        const db = await this.#gameDB;
+        db.exec(`UPDATE CollectionDynamic SET ItemState = 'NotObtained' WHERE CategoryID = 'Traits'`);
+        db.exec(`
+            DELETE FROM LootItemsDynamic 
+            WHERE ItemID IN (SELECT ItemID FROM CollectionDynamic WHERE CategoryID = 'Traits')
+        `);
+    }
+
     async getDBBytes(): Promise<Uint8Array> {
         const db = await this.#gameDB;
         return db.export();

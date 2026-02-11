@@ -41,6 +41,19 @@ set RELEASE_DIR=release
 if exist %RELEASE_DIR% rmdir /s /q %RELEASE_DIR%
 mkdir %RELEASE_DIR%
 
+:: Build Frontend
+echo [0/5] Building Frontend...
+cd HLSE-src
+call npm install
+call npx vite build
+cd ..
+if not exist "HLSE-src\dist\client\index.html" (
+    echo ERROR: Frontend build failed!
+    pause
+    exit /b 1
+)
+copy /Y "HLSE-src\dist\client\index.html" "HLSGE.html" >nul
+
 :: Install dependencies
 echo [1/5] Installing dependencies...
 %PYTHON_CMD% -m pip install -r requirements.txt
