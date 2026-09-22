@@ -4,7 +4,7 @@ Configuration constants for Hogwarts Legacy Save Editor.
 
 # Application metadata
 APP_NAME = "Hogwarts Legacy Save Editor & Manager"
-VERSION = "1.0"
+VERSION = "1.0.4"
 
 # UI Configuration
 APPEARANCE_MODE = "dark"
@@ -26,10 +26,11 @@ MIN_HEIGHT = 500
 TASKBAR_HEIGHT = 80
 MANAGER_WIDTH_RATIO = 0.45
 
-# Expected SHA256 hash of the trusted oo2core_9_win64.dll
+# Expected SHA256 hash of the trusted oo2core_9_win64.dll fallback.
+# The DLL is third-party proprietary software and is not part of this project's MIT license.
 EXPECTED_DLL_HASH = "6f5d41a7892ea6b2db420f2458dad2f84a63901c9a93ce9497337b16c195f457"
 
-# DLL download URL
+# Optional third-party DLL fallback URL. Prefer locating the DLL from the user's own game install.
 DLL_DOWNLOAD_URL = "https://github.com/new-world-tools/go-oodle/releases/download/v0.2.3-files/oo2core_9_win64.dll"
 DLL_NAME = "oo2core_9_win64.dll"
 

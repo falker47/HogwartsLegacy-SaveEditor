@@ -1,172 +1,169 @@
-# 🧙 Hogwarts Legacy Save Editor & Manager
+# Hogwarts Legacy Save Editor & Manager
 
 ![Banner](banner_rectangular.png)
 
-A modern, user-friendly GUI application for editing and managing Hogwarts Legacy save files.
+A Windows desktop manager that connects three pieces of the Hogwarts Legacy save-editing workflow: save discovery and backups, `hlsaves` compression/decompression, and the HLSGE web editor inside a local PyWebView window.
 
-![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
-![License](https://img.shields.io/badge/License-MIT-green.svg)
-![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)
+**Latest packaged release:** v1.0.4
 
-## ✨ Features
+## What this project adds
 
-- 📁 **Auto-detect** save files location (with manual override)
-- ⚙️ **Configuration file** - remembers your last used folder
-- 🔍 **Auto-find** required DLL from game folder (non-blocking)
-- 🔓 **One-click** save extraction and editing
-- 🌐 **Integrated editor** - opens directly in the app
-- 💾 **Auto-save** - changes applied automatically when you click Download
-- 📦 **Automatic backups** - never lose your progress
-- 🎮 **Side-by-side windows** - manager on left, editor on right
+- automatic discovery of Hogwarts Legacy save folders, with manual override;
+- persistent local configuration for the selected save directory;
+- automatic backups before an edited save is written back;
+- an integrated PyWebView workflow, so the editor opens next to the save manager instead of requiring manual upload/download steps;
+- discovery of the required Oodle DLL from common Steam/Epic installations, plus an explicit user-triggered wider search;
+- a small Python bridge that intercepts the editor's download and recompresses the edited database into the original save.
 
-## 📋 Requirements
+This repository is an integration project. It does **not** claim authorship of the external save-format/editor components listed under [Third-party components](#third-party-components).
 
-### Required Files (place in same folder as app)
+## Architecture
 
-| File | Description | Source |
-|------|-------------|--------|
-| `hlsaves.exe` | Save compression tool | [Nexus Mods #1983](https://www.nexusmods.com/hogwartslegacy/mods/1983) (included) |
-| `HLSGE.html` | Save editor | [Nexus Mods #77](https://www.nexusmods.com/hogwartslegacy/mods/77) (included) |
-| `oo2core_9_win64.dll` | Oodle decompression | Copy from your game folder* |
-
-### 🔍 How to find `oo2core_9_win64.dll` 
-
-The app will first try to **automatically find and copy** this file from your installed games (e.g., Hogwarts Legacy).
-
-**If auto-detection fails**, the app will offer to **Download** the file automatically:
-1. Click **Yes** to download the official DLL from GitHub.
-   - The app verifies the file's integrity (SHA256) automatically.
-2. If download fails, you can click **No** to search your PC or select the file manually.
-
-**Manual Instructions (if needed):**
-
-**Common locations:**
-- **Steam:** `C:\Program Files (x86)\Steam\steamapps\common\Hogwarts Legacy\Engine\Binaries\ThirdParty\Oodle\Win64\`
-- **Epic Games:** `C:\Program Files\Epic Games\Hogwarts Legacy\Engine\Binaries\ThirdParty\Oodle\Win64\`
-
-**Instructions:**
-1. Navigate to the folder above
-2. Copy `oo2core_9_win64.dll`
-3. Paste it into the same folder as `HogwartsLegacy-SaveEditor.exe`
-
-> **Note:** If you cannot find the file, you can download it separately from [GitHub releases](https://github.com/new-world-tools/go-oodle/releases/download/v0.2.3-files/oo2core_9_win64.dll).
-
-### Python Dependencies (for running from source)
-
-```
-customtkinter>=5.0.0
-tkinterdnd2>=0.3.0
-pywebview>=4.0.0
+```text
+Hogwarts Legacy .sav
+        |
+        v
+  hlsaves.exe
+(decompress / recompress)
+        |
+        v
+ temporary database
+        |
+        v
+ HLSGE single-file editor
+        |
+        v
+ assets/editor_bridge.js
+        |
+        v
+ Python / PyWebView bridge
+        |
+        v
+ original save + backup
 ```
 
-## 🚀 Installation
+The desktop layer is Python + CustomTkinter. The embedded editor source lives under `HLSE-src/` and is built with Vue/Vite into a single HTML file consumed by PyWebView.
 
-### Option 1: Download Release (Recommended)
-1. Download the latest release from [Releases](../../releases)
-2. Extract to a folder
-3. Add the required files listed above
-4. Run `HogwartsLegacy-SaveEditor.exe`
+## Requirements
 
-### Option 2: Run from Source
+- Windows
+- Python 3.12+ when running from source
+- Node.js 20+ when rebuilding the embedded editor
+- `oo2core_9_win64.dll`, normally obtainable from an installed game that ships the compatible Oodle library
+
+### Oodle DLL handling
+
+The application first checks common Hogwarts Legacy Steam/Epic locations. If those checks fail, the user may explicitly start a broader local search or select the DLL manually.
+
+The current v1.0.4 code also contains a hash-pinned fallback download from the third-party `new-world-tools/go-oodle` release assets. That source is **not an official Epic Games distribution channel**, and the DLL itself is not covered by this repository's MIT license. Prefer using the copy from your own installed game when available.
+
+The DLL is intentionally excluded from this repository and from release packaging.
+
+## Installation
+
+### Packaged release
+
+1. Download the latest ZIP from [GitHub Releases](../../releases/latest).
+2. Extract it to a writable folder.
+3. Run `HogwartsLegacy-SaveEditor.exe`.
+4. Let the app locate `oo2core_9_win64.dll`, or provide it manually if needed.
+
+### Run from source
+
 ```bash
-# Clone the repository
 git clone https://github.com/falker47/HogwartsLegacy-SaveEditor.git
 cd HogwartsLegacy-SaveEditor
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Run
 python main.py
 ```
 
-### Option 3: Build Executable
+The source tree expects the embedded editor and `hlsaves.exe` under `assets/`.
+
+## Usage
+
+1. Launch the manager.
+2. Select the detected save folder or browse to it manually.
+3. Select a save and choose **Edit Save File**.
+4. Make changes in the integrated editor.
+5. Use the editor's **Download** action.
+6. The bridge writes the edited database and asks `hlsaves` to recompress it into the original save path.
+
+Backups are stored in a `Backups` directory under the selected save folder. Keep an independent backup before experimenting with save editors.
+
+## Development and verification
+
+### Python tests
+
 ```bash
-# Install dependencies
-pip install -r requirements-dev.txt
-
-# Build
-build.bat
+python -m pip install pytest
+pytest -q
 ```
 
-## 📖 Usage
+The current unit suite covers utility-level save-name parsing and file-size formatting. It does **not** constitute end-to-end save-integrity certification.
 
-1. **Launch** the application
-2. **Select** a save file from the list
-3. **Click** "Edit Save File"
-4. **Edit** your save in the integrated editor
-5. **Click** "Download" in the editor
-6. ✅ **Done!** Your save is updated automatically
+### Embedded editor build
 
-## 📁 File Structure
-
-```
-HogwartsLegacy-SaveEditor/
-├── main.py                        # Entry point
-├── src/                           # Source modules
-│   ├── app.py                     # Main application
-│   ├── config.py                  # Configuration constants
-│   ├── editor.py                  # Editor process logic
-│   └── utils.py                   # Utility functions
-├── assets/                        # Static assets
-│   └── editor_bridge.js           # WebView bridge script
-├── tests/                         # Unit tests
-│   └── test_utils.py              # Utility tests
-├── hlsaves.exe                    # Compression tool (required)
-├── HLSGE.html                     # Save editor (required)
-└── oo2core_9_win64.dll            # From game (required)
+```bash
+cd HLSE-src
+npm ci
+npm run build
 ```
 
-## 🔄 Changelog
+The production Vite build emits a single-file editor at `HLSE-src/dist/client/index.html`.
 
-### v1.03
-- **FIXED:** Startup freeze on some systems caused by aggressive DLL search.
-- **ADDED:** Configuration file (`config.json`) to save your preferred save directory.
-- **ADDED:** Manual "Deep Search" option for DLLs (no longer runs automatically).
-- **IMPROVED:** Updated DLL download source to a reliable GitHub repository.
+### Release build
 
-### v1.02
-- FIXED: "500 Internal Server Error" on launch for some users.
-- IMPROVED: Editor now loads files directly instead of using a local server.
+On Windows:
 
-### v1.01
-- Added automatic DLL download with hash verification.
-- Improved error handling.
-
-## 🎮 Where Are My Saves?
-
-Hogwarts Legacy saves are located at:
-```
-%LOCALAPPDATA%\Hogwarts Legacy\Saved\SaveGames\[USER_ID]\
+```bat
+build_release.bat
 ```
 
-Backups are saved in:
+The release builder rebuilds the embedded editor, runs the Python tests, builds the executable with PyInstaller, and assembles the distributable while deliberately excluding the Oodle DLL.
+
+GitHub Actions independently checks the Python tests and the frontend production build on pull requests and pushes to `main`.
+
+## Repository map
+
+```text
+.
+├── main.py
+├── src/                    # desktop manager and PyWebView integration
+├── assets/
+│   ├── HLSGE.html          # built embedded editor artifact
+│   ├── hlsaves.exe         # external compression tool used by the app
+│   └── editor_bridge.js
+├── HLSE-src/               # embedded editor source/customizations
+├── tests/
+├── docs/
+├── build_release.bat
+└── CREDITS.md
 ```
-[Save Location]\Backups\
-```
 
-## 🙏 Credits
+## Third-party components
 
-### Developer
-- **falker47** - Application development
+This project depends on components with their own provenance and terms:
 
-### Contributors
-- **Hawk-on** - Code refactoring and quality improvements on the html
+- **hlsaves / hlsavetool** — compression/decompression utility by Katt; upstream source is MIT-licensed.
+- **HLSGE / Hogwarts Legacy Save Game Editor** — embedded web editor derived from the Nexus Mods project; its upstream permissions are separate from this repository's license.
+- **oo2core_9_win64.dll** — proprietary Oodle runtime component; not distributed by this repository.
 
-### Special Thanks
-- **Katt** - [hlsaves.exe](https://www.nexusmods.com/hogwartslegacy/mods/99) (MIT License)
-- **ekaomk** - [HLSGE Save Editor](https://www.nexusmods.com/hogwartslegacy/mods/77)
-- **CustomTkinter** - Modern Python UI framework
-- **pywebview** - Integrated browser window
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [CREDITS.md](CREDITS.md) for the scope of attribution and licensing.
 
-## 📄 License
+## Release history
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- **v1.0.4** — revert/unlock fixes and the current packaged release.
+- **v1.0.3** — configuration persistence, non-blocking DLL discovery flow, refactoring and editor enhancements.
+- **v1.0.2** — direct local editor loading instead of the previous local-server path.
+- **v1.0.1** — hash verification for the optional DLL download.
+- **v1.0.0** — initial public release.
 
-## ⚠️ Disclaimer
+## License
 
-This tool is provided as-is. Always backup your saves before editing. The developer is not responsible for any lost or corrupted save data.
+The original desktop manager, integration code, and other code authored for this repository are licensed under the [MIT License](LICENSE).
 
----
+That license does **not** automatically relicense bundled or derived third-party material. HLSGE, `hlsaves`, the Oodle DLL, game data, trademarks, and other external assets remain subject to their respective upstream terms. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-Made with ❤️ for the Hogwarts Legacy community
+## Disclaimer
+
+This is an unofficial fan-made utility and is not affiliated with Avalanche Software, Warner Bros. Games, Epic Games, or the authors of the third-party tools it integrates. Save editing can corrupt progress; keep backups and test changes carefully.

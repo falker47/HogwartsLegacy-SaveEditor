@@ -1,61 +1,42 @@
-# Hogwarts Legacy Save Editor & Manager v1.0 - Credits
+# Credits and provenance
 
-## 🧙 Developer
+## Project integration
 
-**falker47** - Application development and integration
+**falker47** — Windows desktop manager, save discovery/backup workflow, PyWebView integration, packaging and project maintenance.
 
----
+**Hawk-on** — code-quality refactoring and improvements to the embedded editor integration recorded in this repository's development history.
 
-## 💫 Special Thanks
+## hlsaves / hlsavetool
 
-### hlsaves.exe
-- **Author:** Katt
-- **License:** MIT
-- **Description:** Command-line tool for compressing and decompressing Hogwarts Legacy save files
-- **Source:** [Nexus Mods](https://www.nexusmods.com/hogwartslegacy/mods/1983)
+- Upstream project: `gx570s/hlsavetool`
+- Original author credited upstream: **Katt**
+- Purpose: compress/decompress the SQLite databases stored in Hogwarts Legacy GVAS save files
+- License: **MIT** in the upstream source repository
+- Nexus Mods page: mod #1983
 
-### HLSGE (Hogwarts Legacy Save Game Editor)
-- **Author:** ekaomk
-- **Description:** Web-based save editor for Hogwarts Legacy
-- **Source:** [Nexus Mods](https://www.nexusmods.com/hogwartslegacy/mods/77)
+The upstream MIT notice applies to hlsavetool itself. It is a separate component from this repository's original integration code.
 
-### Libraries Used
+## HLSGE / Hogwarts Legacy Save Game Editor
 
-- **CustomTkinter** - Modern Python UI framework
-  - [GitHub](https://github.com/TomSchimansky/CustomTkinter)
-  
-- **pywebview** - Lightweight cross-platform webview wrapper
-  - [GitHub](https://github.com/niccokunzmann/pywebview)
-  
-- **tkinterdnd2** - Drag and drop support for Tkinter
-  - [GitHub](https://github.com/pmgagne/tkinterdnd2)
+- Upstream distribution: Nexus Mods mod #77
+- Purpose: browser-based save database editor
+- Local integration: built into a single HTML file and hosted inside PyWebView
+- Local project history also contains editor fixes/customizations and credits **ekaomk** in earlier documentation
 
----
+HLSGE's upstream permissions are separate from this repository's MIT license. No statement in this repository should be read as relicensing the upstream editor. See `THIRD_PARTY_NOTICES.md`.
 
-## 📄 License
+## Libraries
 
-This project is licensed under the MIT License.
+The desktop application also uses:
 
-```
-MIT License
+- CustomTkinter
+- pywebview
+- tkinterdnd2
 
-Copyright (c) 2026 falker47
+The embedded editor uses the JavaScript dependencies declared in `HLSE-src/package.json`.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Each dependency remains under its own upstream license.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+## Project license scope
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
+The root `LICENSE` covers original code authored for this repository unless a file or third-party notice states otherwise. It does not supersede the licenses, permissions, copyrights, or trademarks of external components.
