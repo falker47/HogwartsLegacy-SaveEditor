@@ -70,14 +70,15 @@ The DLL is intentionally excluded from this repository and from release packagin
 
 ### Run from source
 
-```bash
+```powershell
 git clone https://github.com/falker47/HogwartsLegacy-SaveEditor.git
 cd HogwartsLegacy-SaveEditor
-pip install -r requirements.txt
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\fetch_hlsaves.ps1
+python -m pip install -r requirements.txt
 python main.py
 ```
 
-The source tree expects the embedded editor and `hlsaves.exe` under `assets/`.
+`fetch_hlsaves.ps1` acquires the pinned upstream hlsavetool v2.0.1 release and verifies its published archive SHA-256 before installing `assets/hlsaves.exe`. The generated executable stays ignored by Git.
 
 ## Usage
 
@@ -119,9 +120,9 @@ On Windows:
 build_release.bat
 ```
 
-The release builder rebuilds the embedded editor, runs the Python tests, builds the executable with PyInstaller, and assembles the distributable while deliberately excluding the Oodle DLL.
+The release builder acquires the pinned hlsavetool release with SHA-256 verification, rebuilds the embedded editor, runs the Python tests, builds the executable with PyInstaller, and assembles the distributable while deliberately excluding the Oodle DLL.
 
-GitHub Actions independently checks the Python tests and the frontend production build on pull requests and pushes to `main`.
+GitHub Actions checks Python tests and the frontend production build on Linux, plus a full Windows release smoke build that verifies the expected package contents and confirms that the Oodle DLL is absent.
 
 ## Repository map
 
@@ -131,8 +132,11 @@ GitHub Actions independently checks the Python tests and the frontend production
 ├── src/                    # desktop manager and PyWebView integration
 ├── assets/
 │   ├── HLSGE.html          # built embedded editor artifact
-│   ├── hlsaves.exe         # external compression tool used by the app
 │   └── editor_bridge.js
+├── scripts/
+│   └── fetch_hlsaves.ps1   # verified acquisition of upstream hlsavetool
+├── third_party/
+│   └── hlsavetool-LICENSE.txt
 ├── HLSE-src/               # embedded editor source/customizations
 ├── tests/
 ├── docs/
@@ -144,7 +148,7 @@ GitHub Actions independently checks the Python tests and the frontend production
 
 This project depends on components with their own provenance and terms:
 
-- **hlsaves / hlsavetool** — compression/decompression utility by Katt; upstream source is MIT-licensed.
+- **hlsaves / hlsavetool** — compression/decompression utility by Katt; upstream source is MIT-licensed. The project pins v2.0.1 and verifies the release archive before packaging it.
 - **HLSGE / Hogwarts Legacy Save Game Editor** — embedded web editor derived from the Nexus Mods project; its upstream permissions are separate from this repository's license.
 - **oo2core_9_win64.dll** — proprietary Oodle runtime component; not distributed by this repository.
 

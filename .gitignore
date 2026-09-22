@@ -3,7 +3,6 @@ build/
 dist/
 *.spec
 *.exe
-!hlsaves.exe
 
 # Python
 __pycache__/
@@ -43,8 +42,9 @@ editor_status.txt
 Thumbs.db
 desktop.ini
 
-# Game DLL (do not distribute)
+# Third-party runtime binaries are acquired locally and must not be committed.
 oo2core_9_win64.dll
+assets/hlsaves.exe
 
 # Backups (user data)
 Backups/

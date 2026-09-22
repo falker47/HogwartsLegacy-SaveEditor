@@ -9,9 +9,9 @@ if not exist "assets\HLSGE.html" (
 )
 
 if not exist "assets\hlsaves.exe" (
-    echo [!!] assets\hlsaves.exe is missing.
-    echo      See THIRD_PARTY_NOTICES.md for upstream provenance.
-    exit /b 1
+    echo [i] hlsaves.exe not found locally; acquiring pinned upstream v2.0.1...
+    powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\fetch_hlsaves.ps1"
+    if errorlevel 1 exit /b 1
 )
 
 set PYTHON_CMD=

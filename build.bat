@@ -18,8 +18,9 @@ if errorlevel 1 (
 )
 
 if not exist "assets\hlsaves.exe" (
-    echo ERROR: assets\hlsaves.exe is missing.
-    exit /b 1
+    echo Acquiring pinned hlsavetool dependency...
+    powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\fetch_hlsaves.ps1"
+    if errorlevel 1 exit /b 1
 )
 
 echo [1/5] Installing development dependencies...
