@@ -37,3 +37,35 @@ jobs:
         run: npm ci
       - name: Build single-file editor
         run: npm run build
+
+  release-smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: HLSE-src/package-lock.json
+      - name: Build release package end to end
+        shell: cmd
+        run: build_release.bat
+      - name: Verify release contents
+        shell: powershell
+        run: |
+          $required = @(
+            "release\HogwartsLegacy-SaveEditor.exe",
+            "release\assets\HLSGE.html",
+            "release\assets\hlsaves.exe",
+            "release\THIRD_PARTY_NOTICES.md",
+            "release\hlsavetool-LICENSE.txt"
+          )
+          foreach ($path in $required) {
+            if (-not (Test-Path $path)) { throw "Missing expected release file: $path" }
+          }
+          if (Test-Path "release\assets\oo2core_9_win64.dll") {
+            throw "Oodle DLL must not be distributed in the release package."
+          }
