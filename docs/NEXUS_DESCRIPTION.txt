@@ -1,50 +1,53 @@
-[size=5][b]Hogwarts Legacy Save Editor & Manager v1.0[/b][/size]
-[img]Insert Banner Image Here if you have one[/img]
+[size=5][b]Hogwarts Legacy Save Editor & Manager v1.0.4[/b][/size]
 
-[b]The ultimate all-in-one tool for managing and editing your Hogwarts Legacy saves.[/b]
-No more uploading files to websites. No more hex editing. Just open the app, click, and edit.
+A Windows desktop workflow for locating, backing up and editing Hogwarts Legacy saves without manually moving files between a save manager and a browser editor.
 
 [line]
 
-[size=4][b]✨ FEATURES[/b][/size]
+[size=4][b]FEATURES[/b][/size]
 [list]
-[*]🚀 [b]Start & Go:[/b] Automatically detects your save files. No configuration needed.
-[*]🌐 [b]Integrated Editor:[/b] Uses the famous [i]Hhogwarts Legacy Save Game Editor[/i] embedded directly in the app.
-[*]🔮 [b]Smart Auto-Discovery:[/b] Automatically finds the required [code]oo2core_9_win64.dll[/code] from your installed games (Hogwarts Legacy, FC26, etc.).
-[*]📦 [b]Automatic Backups:[/b] Every time you edit, a backup is created instantly. Never lose progress.
-[*]🎨 [b]Modern UI:[/b] sleek Dark Mode interface powered by CustomTkinter.
+[*][b]Save discovery:[/b] detects the standard Hogwarts Legacy save location, with manual override and persistent configuration.
+[*][b]Automatic backups:[/b] creates a backup before an edited save is written back.
+[*][b]Integrated editor:[/b] opens the HLSGE-derived editor inside PyWebView next to the manager.
+[*][b]Automatic write-back:[/b] the editor's Download action is intercepted locally and the edited database is recompressed through hlsaves.
+[*][b]Oodle discovery:[/b] checks common Steam/Epic installations first; a wider search or manual selection is available when needed.
 [/list]
 
 [line]
 
-[size=4][b]📥 INSTALLATION[/b][/size]
-1. Download the Main File.
-2. Extract the archive to a folder of your choice.
-3. Run [b]HogwartsLegacy-SaveEditor.exe[/b].
-4. [b]Enjoy![/b] The app will try to auto-find the required DLL file.
+[size=4][b]INSTALLATION[/b][/size]
+1. Download and extract the release archive.
+2. Run [b]HogwartsLegacy-SaveEditor.exe[/b].
+3. If the required [code]oo2core_9_win64.dll[/code] is available in a supported local game installation, the app will try to locate it.
+4. Otherwise use the explicit search/manual-selection flow.
 
-[b]⚠️ If the DLL is missing:[/b]
-The app will show a popup asking if you want to download it. Click [b]YES[/b] to go to the Modding Wiki page, download [code]oo2core_9_win64.dll[/code], and put it in the app folder.
+[b]The Oodle DLL is not bundled with this project.[/b]
+
+The current v1.0.4 application also contains a hash-pinned fallback download from the third-party new-world-tools/go-oodle GitHub release assets. This is not an official Epic Games distribution channel; using a DLL from your own installed game is preferable when available.
 
 [line]
 
-[size=4][b]🛠️ HOW TO USE[/b][/size]
-1. Open the app.
-2. Select a save slot from the list on the left.
+[size=4][b]HOW TO USE[/b][/size]
+1. Open the manager.
+2. Select a save.
 3. Click [b]Edit Save File[/b].
-4. The editor will open on the right. Modify your money, inventory, talents, etc.
-5. Click [b]Download[/b] inside the editor.
-6. The app automatically injects the changes back into your game save.
-7. Launch the game!
+4. Make changes in the integrated editor.
+5. Use the editor's [b]Download[/b] action.
+6. The bridge recompresses the edited database into the original save path.
+
+Keep an independent backup before experimenting with save editors.
 
 [line]
 
-[size=4][b]📜 CREDITS[/b][/size]
+[size=4][b]CREDITS / PROVENANCE[/b][/size]
 [list]
-[*]Developed by [b]falker47[/b]
-[*]Save Compression Tool: [url=https://www.nexusmods.com/hogwartslegacy/mods/1983]hlsaves[/url] by Katt
-[*]Save Editor Webapp: [url=https://www.nexusmods.com/hogwartslegacy/mods/77]HLSGE[/url] by ekaomk
-[*]GUI Framework: CustomTkinter
+[*]Desktop integration and manager: [b]falker47[/b]
+[*]hlsaves / hlsavetool: Katt — upstream source is MIT-licensed
+[*]Embedded HLSGE-derived editor: Nexus Mods #77 — upstream permissions remain separate from this project's MIT license
+[*]Additional editor/integration refactoring recorded in project history: Hawk-on
 [/list]
 
-[b]Open Source:[/b] [url=https://github.com/falker47/HogwartsLegacy-SaveEditor]GitHub Repository[/url]
+The project's MIT license covers original integration code; it does not automatically relicense third-party components.
+
+[b]Source and detailed third-party notices:[/b]
+https://github.com/falker47/HogwartsLegacy-SaveEditor
