@@ -1,16 +1,15 @@
 {
   "name": "hogwarts-legacy-save-game-editor",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "description": "Embedded HLSGE-derived editor source used by the desktop integration.",
   "scripts": {
-    "start": "tsc && node ./dist/server/server.js",
     "dev": "vite",
     "build": "vite build",
-    "lint": "eslint --fix --ext .vue,.ts vite.config.ts src/"
+    "lint": "eslint --ext .vue,.ts vite.config.ts src/",
+    "lint:fix": "eslint --fix --ext .vue,.ts vite.config.ts src/"
   },
-  "author": "",
-  "license": "ISC",
+  "license": "UNLICENSED",
   "devDependencies": {
     "@mdi/font": "^7.1.96",
     "@types/node": "^18.13.0",
