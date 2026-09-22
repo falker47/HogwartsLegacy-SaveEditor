@@ -12,9 +12,10 @@
 - Original author credited upstream: **Katt**
 - Purpose: compress/decompress the SQLite databases stored in Hogwarts Legacy GVAS save files
 - License: **MIT** in the upstream source repository
+- Pinned project dependency: **v2.0.1**
 - Nexus Mods page: mod #1983
 
-The upstream MIT notice applies to hlsavetool itself. It is a separate component from this repository's original integration code.
+The executable is acquired from the upstream GitHub release during setup/build and its release archive SHA-256 is verified before use. The upstream MIT license notice is preserved under `third_party/hlsavetool-LICENSE.txt`.
 
 ## HLSGE / Hogwarts Legacy Save Game Editor
 
