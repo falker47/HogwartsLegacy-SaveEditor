@@ -6,12 +6,14 @@ This file documents provenance and license boundaries for external components us
 
 **Upstream:** https://github.com/gx570s/hlsavetool  
 **Purpose:** compression/decompression of Hogwarts Legacy save databases  
+**Pinned release:** v2.0.1 (2026-04-30)  
+**Pinned release archive SHA-256:** `a5733229c767f451d0b2612df88af2823e84e769b482d9b0eebe7f6fc09472ed`  
 **Upstream license:** MIT  
 **Upstream copyright notice:** Copyright (c) 2024 Katt
 
-The upstream MIT license permits redistribution subject to preservation of its copyright and permission notice. The copy used by this project is a third-party executable; it is not authored by falker47.
+The executable is not committed to this repository. `scripts/fetch_hlsaves.ps1` downloads the pinned upstream GitHub release archive, verifies the archive SHA-256, locates `hlsaves.exe`, and installs it into `assets/` for local use or packaging.
 
-For release maintenance, verify the exact upstream version and preserve the upstream license notice alongside redistributed builds.
+The upstream MIT notice is preserved at `third_party/hlsavetool-LICENSE.txt` and is copied into release packages.
 
 ## 2. HLSGE / Hogwarts Legacy Save Game Editor
 
@@ -26,7 +28,7 @@ Accordingly:
 - attribution to the upstream editor must be preserved;
 - redistribution/modification rights for HLSGE must be established from the upstream author/permissions independently of this repository's license.
 
-The repository history does not itself contain a separate permission grant that can be treated as authoritative evidence. If an external permission grant exists, it should be preserved in durable project records and the notice updated accordingly.
+The repository history and connected email search performed during the September 2026 GPR audit did not surface a standalone permission grant that can be treated as authoritative evidence. If an external permission grant exists, it should be preserved in durable project records and this notice updated accordingly.
 
 ## 3. oo2core_9_win64.dll
 
