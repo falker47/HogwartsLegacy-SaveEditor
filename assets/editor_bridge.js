@@ -66,7 +66,19 @@
      * @param {string} message - Error message to display
      */
     function showError(overlay, message) {
-        overlay.innerHTML = '<div style="text-align:center;color:#f44336;font-size:28px;">❌ Error<br><small style="font-size:14px;">' + message + '</small></div>';
+        overlay.textContent = 'Error: ' + message;
+        overlay.style.color = '#f44336';
+        overlay.style.whiteSpace = 'pre-wrap';
+    }
+
+    function readBlob(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result.split(',')[1]);
+            reader.onerror = () => reject(reader.error || new Error('Could not read download'));
+            reader.onabort = () => reject(new Error('Download read cancelled'));
+            reader.readAsDataURL(blob);
+        });
     }
 
     /**
@@ -86,38 +98,40 @@
                 '<div style="text-align:center;color:white;font-size:28px;">💾 Saving...<br><small style="font-size:16px;">Please wait</small></div>'
             );
 
+            // Explicit contract with saveFilePage.vue and fileHandler.vue.
+            // Both payload types use application/octet-stream; unknown names fail closed.
+            const fileName = target.getAttribute('download');
+            const isDatabase = fileName === 'sqldb1.sqlite' || fileName === 'sqldb2.sqlite';
+            const isSave = fileName === 'hlsave.sav' || fileName === 'hlcustomsave.sav';
             const href = target.href;
-            if (!href || !href.startsWith('blob:')) {
-                showError(overlay, 'Invalid download link');
-                setTimeout(() => overlay.remove(), 3000);
-                return;
-            }
-
             try {
+                if (!isDatabase && !isSave) {
+                    throw new Error('Unsupported download');
+                }
+                if (!href || !href.startsWith('blob:')) {
+                    throw new Error('Invalid download link');
+                }
                 const response = await fetch(href);
                 const blob = await response.blob();
-                const reader = new FileReader();
+                const b64 = await readBlob(blob);
+                const result = isDatabase
+                    ? await pywebview.api.export_database(b64, fileName)
+                    : await pywebview.api.save_edited_file(b64);
 
-                reader.onload = async function () {
-                    try {
-                        const b64 = reader.result.split(',')[1];
-                        const result = await pywebview.api.save_edited_file(b64);
-
-                        if (result.success) {
-                            showSuccess(overlay);
-                            setTimeout(async () => {
-                                await pywebview.api.close_window();
-                            }, 1500);
-                        } else {
-                            showError(overlay, result.error);
-                            setTimeout(() => overlay.remove(), 3000);
-                        }
-                    } catch (err) {
-                        showError(overlay, err.message);
-                        setTimeout(() => overlay.remove(), 3000);
-                    }
-                };
-                reader.readAsDataURL(blob);
+                if (isDatabase && result.cancelled) {
+                    overlay.remove();
+                } else if (!result.success) {
+                    throw new Error(result.error || 'Download failed');
+                } else if (isDatabase) {
+                    overlay.textContent = 'Database exported: ' + fileName;
+                    overlay.style.color = '#4CAF50';
+                    setTimeout(() => overlay.remove(), 1500);
+                } else {
+                    showSuccess(overlay);
+                    setTimeout(async () => {
+                        await pywebview.api.close_window();
+                    }, 1500);
+                }
             } catch (err) {
                 showError(overlay, err.message);
                 setTimeout(() => overlay.remove(), 3000);
