@@ -35,7 +35,16 @@ Accordingly:
 
 The repository history and connected email search performed during the September 2026 GPR audit did not surface a standalone permission grant that can be treated as authoritative evidence. If an external permission grant exists, it should be preserved in durable project records and this notice updated accordingly.
 
-## 3. oo2core_9_win64.dll
+## 3. Legilimens Revelio identifier dataset
+
+- **Upstream:** https://github.com/Malin001/Legilimens-Hogwarts-Legacy-Collectible-Finder
+- **Purpose here:** explicit whitelist of known Revelio Field Guide Page ItemIDs used to avoid broad/speculative collection mutations
+- **Upstream license:** MIT
+- **Upstream copyright notice:** Copyright (c) 2023 Malin001
+
+The identifier whitelist in `HLSE-src/src/client/resources/revelioPages.ts` is derived from the upstream `collectibles.json` Revelio entries. The upstream MIT license is preserved at `third_party/legilimens-LICENSE.txt`.
+
+## 4. oo2core_9_win64.dll
 
 **Component:** Oodle runtime DLL  
 **Vendor technology:** Epic Games / RAD Game Tools
@@ -44,10 +53,10 @@ The DLL is proprietary third-party software. It is intentionally ignored by Git 
 
 The application prefers locating a compatible copy from the user's installed games. Current v1.0.5 code also offers a hash-pinned third-party fallback URL hosted in the `new-world-tools/go-oodle` GitHub release assets. That hosting location does not make the DLL part of the MIT-licensed codebase or an official distribution channel.
 
-## 4. Hogwarts Legacy and related marks
+## 5. Hogwarts Legacy and related marks
 
 Hogwarts Legacy and related names, assets and trademarks belong to their respective owners. This project is unofficial and unaffiliated.
 
-## 5. Dependency licenses
+## 6. Dependency licenses
 
 Python and JavaScript dependencies retain their own upstream licenses. Their presence in dependency manifests does not place them under this repository's MIT license.
