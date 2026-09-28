@@ -226,16 +226,12 @@ export class SaveGameDB {
                     {
                         const perkRows = db.exec('SELECT COUNT(*) FROM PerkDynamic');
                         const learnedPerks = Number(perkRows[0]?.values[0]?.[0] ?? 0);
-                        const perkPointRows = db.exec(
-                            "SELECT DataValue FROM MiscDataDynamic WHERE DataOwner = 'Player0' AND DataName = 'PerkPoints'"
-                        );
-                        const unspentPoints = Number(perkPointRows[0]?.values[0]?.[0] ?? 0);
-                        const talentSystemInitialized = learnedPerks > 0 || unspentPoints > 0;
+                        const talentSystemInitialized = learnedPerks > 0;
 
                         if(!talentSystemInitialized)
                         {
                             throw new Error(
-                                'Experience level jumps are blocked until the save shows evidence that Talents are initialized. '
+                                'Experience level jumps are blocked until the save contains at least one learned talent. '
                                 + 'This prevents the known pre-Talent level-skip progression bug.'
                             );
                         }
