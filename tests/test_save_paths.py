@@ -92,18 +92,29 @@ def test_resolved_directory_alias_is_blocked(tmp_path, wgs):
     assert is_wgs_path(link / "payload.sav")
 
 
-def test_steam_discovery_retains_newest_numeric_folder_and_reports_wgs(app, tmp_path, wgs, monkeypatch):
+def test_steam_discovery_uses_newest_save_not_folder_timestamp_and_reports_wgs(app, tmp_path, wgs, monkeypatch):
     instance, _ = app
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
     base = tmp_path / "Hogwarts Legacy/Saved/SaveGames"
-    for name, timestamp in [("123", 100), ("456", 200), ("not-a-user", 300)]:
+    for name, folder_timestamp, save_timestamp in [
+        ("123", 300, 100),
+        ("456", 100, 200),
+        ("epic-profile", 400, 150),
+    ]:
         directory = base / name
         directory.mkdir(parents=True)
-        os.utime(directory, (timestamp, timestamp))
-    instance._detect_save_directory()
-    assert instance.save_directory == base / "456"
+        save = directory / "HL-00-00.sav"
+        save.write_bytes(b"synthetic save")
+        os.utime(save, (save_timestamp, save_timestamp))
+        os.utime(directory, (folder_timestamp, folder_timestamp))
+    assert instance._detect_save_directory()
+    assert instance.save_directory == (base / "456").resolve()
     assert instance.backup_dir.is_dir()
     instance._refresh_save_list.assert_called_once()
+    instance.path_label.configure.assert_called_with(
+        text=f"Auto-detected: {(base / '456').resolve()}"
+    )
+    assert any("newest .sav" in str(call) for call in instance._log.call_args_list)
     assert any("WGS area detected" in str(call) for call in instance._log.call_args_list)
 
 
@@ -151,10 +162,30 @@ def test_ordinary_browse_and_refresh_keep_sav_filter(app, tmp_path, monkeypatch)
     monkeypatch.setattr(module.filedialog, "askdirectory", lambda **_: str(ordinary))
     instance._browse_save_directory()
     assert instance.save_directory == ordinary
-    assert instance.config["save_directory"] == str(ordinary)
+    assert instance.config["save_directory"] == str(ordinary.resolve())
+    assert instance.config["auto_detect_saves"] is False
     instance._save_config.assert_called_once()
     module.App._refresh_save_list(instance)
     assert {p.name for p, _ in instance.save_files} == {"HL-00-00.sav", "other.sav"}
+
+
+def test_force_auto_detect_switches_back_from_manual_mode_and_persists(app, tmp_path, monkeypatch):
+    instance, _ = app
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    base = tmp_path / "Hogwarts Legacy/Saved/SaveGames"
+    canonical = base / "123"
+    canonical.mkdir(parents=True)
+    (canonical / "HL-00-00.sav").write_bytes(b"synthetic save")
+    stale = tmp_path / "stale"
+    stale.mkdir()
+    instance.config = {"save_directory": str(stale), "auto_detect_saves": False}
+
+    instance._auto_detect_save_directory()
+
+    assert instance.save_directory == canonical.resolve()
+    assert instance.config["auto_detect_saves"] is True
+    assert instance.config["save_directory"] == str(canonical.resolve())
+    instance._save_config.assert_called_once()
 
 
 def test_refresh_and_edit_refuse_wgs_even_if_state_was_set_directly(app, wgs):
