@@ -101,11 +101,18 @@ class App(BaseWindow):
         if not self._verify_required_files():
             pass  # Continue to let user read errors
 
-        # Directory detection logic
-        if self.config.get("save_directory") and Path(self.config["save_directory"]).exists():
-            self._set_save_directory(Path(self.config["save_directory"]), "Saved folder")
-        elif self.config.get("auto_detect_saves", True):
-            self._detect_save_directory()
+        # Directory detection logic. Legacy configs did not record whether a saved
+        # directory was an intentional manual override, so auto-detect takes
+        # precedence whenever it is enabled. Browse explicitly switches to manual mode.
+        saved_directory = self.config.get("save_directory")
+        if self.config.get("auto_detect_saves", True):
+            if not self._detect_save_directory():
+                if saved_directory and Path(saved_directory).exists():
+                    self._set_save_directory(Path(saved_directory), "Saved fallback")
+                else:
+                    self._log("ℹ️ Auto-detect found no ordinary saves. Please browse for a save folder.")
+        elif saved_directory and Path(saved_directory).exists():
+            self._set_save_directory(Path(saved_directory), "Manual folder")
         else:
              self._log("ℹ️ Auto-detect disabled. Please browse for save folder.")
              self.path_label.configure(text="Select Folder")
@@ -352,8 +359,11 @@ class App(BaseWindow):
 
         ctk.CTkLabel(header, text="📁 Save Files",
             font=ctk.CTkFont(size=16, weight="bold")).grid(row=0, column=0, sticky="w")
-        self.path_label = ctk.CTkLabel(header, text="Detecting...",
-            font=ctk.CTkFont(size=11), text_color="gray")
+        self.path_label = ctk.CTkLabel(
+            header, text="Detecting...",
+            font=ctk.CTkFont(size=11), text_color="gray",
+            justify="left", wraplength=360
+        )
         self.path_label.grid(row=1, column=0, sticky="w")
 
         self.save_list_frame = ctk.CTkScrollableFrame(left)
@@ -374,9 +384,13 @@ class App(BaseWindow):
         btns.grid_columnconfigure(1, weight=1)
 
         ctk.CTkButton(btns, text="🔄 Refresh", command=self._refresh_save_list,
-            height=28).grid(row=0, column=0, padx=(0, 5), sticky="ew")
+            height=28).grid(row=0, column=0, padx=(0, 5), pady=(0, 5), sticky="ew")
         ctk.CTkButton(btns, text="📁 Browse", command=self._browse_save_directory,
-            height=28).grid(row=0, column=1, padx=(5, 0), sticky="ew")
+            height=28).grid(row=0, column=1, padx=(5, 0), pady=(0, 5), sticky="ew")
+        ctk.CTkButton(btns, text="🎯 Auto Detect", command=self._auto_detect_save_directory,
+            height=28).grid(row=1, column=0, padx=(0, 5), sticky="ew")
+        ctk.CTkButton(btns, text="📂 Open Folder", command=self._open_save_folder,
+            height=28).grid(row=1, column=1, padx=(5, 0), sticky="ew")
 
         # RIGHT PANEL
         right = ctk.CTkFrame(main_frame)
@@ -510,16 +524,16 @@ class App(BaseWindow):
             self._refresh_save_list()
             self.path_label.configure(text="WGS unsupported — use Browse")
             return False
-        self.save_directory = directory
-        self.backup_dir = directory / "Backups"
+        self.save_directory = directory.resolve()
+        self.backup_dir = self.save_directory / "Backups"
         self.backup_dir.mkdir(exist_ok=True)
-        self.path_label.configure(text=f"{source}: .../{directory.name}")
-        self._log(f"📁 {source}: ordinary .sav folder selected.")
+        self.path_label.configure(text=f"{source}: {self.save_directory}")
+        self._log(f"📁 {source}: {self.save_directory}")
         self._refresh_save_list()
         return True
 
-    def _detect_save_directory(self) -> None:
-        """Auto-detect the Hogwarts Legacy save directory."""
+    def _detect_save_directory(self) -> bool:
+        """Auto-detect the ordinary save folder containing the newest .sav."""
         local_app_data = os.environ.get("LOCALAPPDATA", "")
         wgs = find_hogwarts_wgs(local_app_data)
         if wgs:
@@ -528,16 +542,42 @@ class App(BaseWindow):
         if not local_app_data or not base.exists():
             self._log("⚠️ Steam/Epic save dir not found. Use Browse for an ordinary .sav folder.")
             self.path_label.configure(text="WGS unsupported" if wgs else "Not found")
-            return
+            return False
 
-        folders = [d for d in base.iterdir() if d.is_dir() and d.name.isdigit()]
-        if not folders:
-            self._log("⚠️ No user folders.")
-            self.path_label.configure(text="No folders")
-            return
+        candidates = []
+        for folder in base.iterdir():
+            if not folder.is_dir():
+                continue
+            saves = [path for path in folder.glob("*.sav") if path.is_file()]
+            if saves:
+                latest_save_mtime = max(path.stat().st_mtime for path in saves)
+                candidates.append((latest_save_mtime, folder))
 
-        folders.sort(key=lambda x: x.stat().st_mtime, reverse=True)
-        self._set_save_directory(folders[0], "Steam/Epic")
+        if not candidates:
+            self._log(f"⚠️ No ordinary .sav files found under: {base}")
+            self.path_label.configure(text=f"No saves under: {base}")
+            return False
+
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        selected = candidates[0][1]
+        self._log(f"🎯 Auto-detect selected the folder with the newest .sav: {selected}")
+        return self._set_save_directory(selected, "Auto-detected")
+
+    def _auto_detect_save_directory(self) -> None:
+        """Force canonical Steam/Epic auto-detection and persist auto mode."""
+        self.config["auto_detect_saves"] = True
+        if self._detect_save_directory():
+            self.config["save_directory"] = str(self.save_directory)
+            self._save_config()
+            self._log("✅ Auto-detect mode saved.")
+
+    def _open_save_folder(self) -> None:
+        """Open the currently selected save directory in Explorer."""
+        if self.save_directory and self.save_directory.exists():
+            os.startfile(self.save_directory)
+            self._log(f"📂 Opened save folder: {self.save_directory}")
+        else:
+            messagebox.showinfo("No Save Folder", "No save folder is currently selected.")
 
     def _browse_save_directory(self) -> None:
         """Browse for save directory manually."""
@@ -551,8 +591,9 @@ class App(BaseWindow):
                 messagebox.showwarning("Unsupported save folder", WGS_LIMITATION)
                 return
 
-            # Save to config
+            # Browse is an explicit manual override. Auto Detect can switch back.
             self.config["save_directory"] = str(self.save_directory)
+            self.config["auto_detect_saves"] = False
             self._save_config()
 
     def _refresh_save_list(self) -> None:
