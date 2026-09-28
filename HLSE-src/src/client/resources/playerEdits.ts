@@ -100,7 +100,7 @@ export function validateProgressionChanges(
         ? validatePlayerNumber(changes.Exp as string, 'Experience', MAX_EXPERIENCE)
         : context.experience;
 
-    if(proposedExperience < context.experience)
+    if(proposedExperience < context.experience && context.experience <= MAX_EXPERIENCE)
     {
         throw new Error(
             'Experience can only be increased. Lowering XP can invalidate learned talents '
