@@ -7,6 +7,7 @@ import base64
 import subprocess
 from pathlib import Path
 from typing import Callable, Optional
+from .save_paths import require_loose_save_path
 
 
 def get_editor_bridge_js(app_dir: str) -> str:
@@ -251,6 +252,7 @@ class EditorApi:
                 return {"success": False, "cancelled": True}
             # WinForms returns a string; other backends return a sequence.
             destination = Path(selection if isinstance(selection, str) else selection[0])
+            require_loose_save_path(destination)
             protected = (Path(self.original_save), Path(self.file_path))
             if destination.resolve() in (path.resolve() for path in protected):
                 raise ValueError("Choose a new SQLite file, not the loaded save")
@@ -285,6 +287,8 @@ class EditorApi:
         """
         try:
             edited_path = Path(self.file_path).parent / f"{Path(self.file_name).stem}.edited"
+            require_loose_save_path(Path(self.original_save))
+            require_loose_save_path(edited_path)
 
             binary = base64.b64decode(b64_data)
             with open(edited_path, 'wb') as f:
@@ -302,7 +306,7 @@ class EditorApi:
             self._write_status("success", "Save updated successfully!")
             return {"success": True}
 
-        except (IOError, OSError, subprocess.SubprocessError) as e:
+        except (ValueError, IOError, OSError, subprocess.SubprocessError) as e:
             self._write_status("error", str(e))
             return {"success": False, "error": str(e)}
 

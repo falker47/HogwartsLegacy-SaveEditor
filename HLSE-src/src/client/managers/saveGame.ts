@@ -43,16 +43,11 @@ class SaveGameManager {
         return AppStateRA.saveGameDB.deletePlayerPerk(perkName);
     }
 
-    async modifyPlayerData(playerData: PlayerData): Promise<void> {
+    async modifyPlayerData(playerData: Partial<PlayerData>): Promise<void> {
         if (!AppStateRA.saveGameDB) {
-            return;
+            throw new Error('Load a save before applying Player changes.');
         }
-
-        await AppStateRA.saveGameDB.modifyPlayerName(playerData);
-        await AppStateRA.saveGameDB.modifyPlayerHouse(playerData);
-        await AppStateRA.saveGameDB.modifyPlayerPerkPoints(playerData.PerkPoints);
-        await AppStateRA.saveGameDB.modifyPlayerInventoryCapacity(playerData.BaseInventoryCapacity);
-        await AppStateRA.saveGameDB.modifyPlayerExp(playerData.Exp);
+        await AppStateRA.saveGameDB.modifyPlayerData(playerData);
     }
 
     async modifyPlayerResource(playerResource: PlayerResource): Promise<void> {

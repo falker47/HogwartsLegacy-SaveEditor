@@ -1,6 +1,13 @@
 # Database Findings & Lock Logic 📚
 
-## Overview
+## Evidence status after the residual audit
+
+The recipes below record historical implementation assumptions, not independent
+in-game validation. In particular, the old `WandHandles` and `RevelioPages` mappings
+were contradicted by the inspected HL-02B database. Their mutations are now disabled.
+See [the evidence audit](nexus-residuals-audit.md) for sources, tests and limitations.
+
+## Historical overview (unverified)
 Unlocking "Collections" (Field Guide completion) requires more than just updating the `CollectionDynamic` table. The game performs cross-checks against the `LootItemsDynamic` table to verify that an item was legitimately "looted" or "found".
 
 ## The Multi-Table Pattern
@@ -16,7 +23,7 @@ To successfully unlock a collection item so it appears in the Field Guide and co
     *   The `ItemID` often requires a prefix (e.g., `Recipe_Transfiguration_` for Conjurations).
     *   **Purpose**: Validates the item as "owned" prevents re-looting logic issues, and ensures it renders in the specific collection details page.
 
-## Validated Mappings
+## Historical mappings (not gameplay-certified)
 
 ### 1. Conjurations (Room of Requirement)
 *   **CategoryID**: `Conjurations`
@@ -39,20 +46,22 @@ To successfully unlock a collection item so it appears in the Field Guide and co
     AND ('Recipe_Transfiguration_' || ItemID) NOT IN (SELECT DISTINCT ItemID FROM LootItemsDynamic WHERE ItemID IS NOT NULL);
     ```
 
-### 2. Field Guide Pages
-*   **CategoryID**: `RevelioPages`
-*   **Loot Item Prefix**: None (Direct `ItemID`)
-*   **Observation**: These are simpler but still benefit from the dual-table update to ensure consistency.
+### 2. Field Guide / Revelio Pages — disabled
+
+The historical guessed `RevelioPages` category and extra loot writes are not a
+supported recipe. Public reader tooling distinguishes lore collections, flying pages
+and other page flags in different tables. No page mutation remains enabled here.
 
 ### 3. Appearances (Cosmetics)
 *   **CategoryID**: `Appearances`
 *   **Loot Item Prefix**: None (Direct `ItemID`)
 *   **Observation**: Unlocks outfit visuals.
 
-### 4. Wand Handles (Cosmetics)
-*   **CategoryID**: `WandHandles`
-*   **Loot Item Prefix**: None (Direct `ItemID`)
-*   **Implementation**: Same multi-table pattern as Appearances.
+### 4. Wand Handles — disabled
+
+The inspected save uses `WandStyle`, with duplicate obtained/unknown rows and related
+usage locks. Merely renaming the old `WandHandles` category does not establish a safe
+unlock/revert transition. No replacement SQL recipe is claimed.
 
 ### 5. Traits (Gear Upgrades)
 *   **CategoryID**: `Traits`

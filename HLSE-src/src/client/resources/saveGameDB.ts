@@ -3,6 +3,7 @@ import sqlJSWasmURL from 'sql.js/dist/sql-wasm.wasm?url';
 import initSqlJs, { Database } from 'sql.js';
 
 import { GearItem, LockListItem, LockState, PlayerData, PlayerResource } from '../interfaces';
+import { progressionWarning, validatePlayerNumber } from './playerEdits';
 
 interface LockItem {
     LockID: string;
@@ -152,13 +153,13 @@ export class SaveGameDB {
             return defaultValue;
         };
 
-        const firstNameData = db.exec(`SELECT DataValue FROM MiscDataDynamic WHERE DataName = 'PlayerFirstName'`);
-        const lastNameData = db.exec(`SELECT DataValue FROM MiscDataDynamic WHERE DataName = 'PlayerLastName'`);
-        const houseData = db.exec(`SELECT DataValue FROM MiscDataDynamic WHERE DataName = 'HouseID'`);
-        const expData = db.exec(`SELECT DataValue FROM MiscDataDynamic WHERE DataName = 'ExperiencePoints'`);
-        const levelData = db.exec(`SELECT DataValue FROM MiscDataDynamic WHERE DataName = 'LevelUpMult'`);
-        const perkData = db.exec(`SELECT DataValue FROM MiscDataDynamic WHERE DataName = 'PerkPoints'`);
-        const baseInvCap = db.exec(`SELECT DataValue FROM MiscDataDynamic WHERE DataName = 'BaseInventoryCapacity'`);
+        const firstNameData = db.exec(`SELECT DataValue FROM MiscDataDynamic WHERE DataOwner = 'Player' AND DataName = 'PlayerFirstName'`);
+        const lastNameData = db.exec(`SELECT DataValue FROM MiscDataDynamic WHERE DataOwner = 'Player' AND DataName = 'PlayerLastName'`);
+        const houseData = db.exec(`SELECT DataValue FROM MiscDataDynamic WHERE DataOwner = 'Player' AND DataName = 'HouseID'`);
+        const expData = db.exec(`SELECT DataValue FROM MiscDataDynamic WHERE DataOwner = 'ExperienceManager' AND DataName = 'ExperiencePoints'`);
+        const levelData = db.exec(`SELECT DataValue FROM MiscDataDynamic WHERE DataOwner = 'ExperienceManager' AND DataName = 'LevelUpMult'`);
+        const perkData = db.exec(`SELECT DataValue FROM MiscDataDynamic WHERE DataOwner = 'Player0' AND DataName = 'PerkPoints'`);
+        const baseInvCap = db.exec(`SELECT DataValue FROM MiscDataDynamic WHERE DataOwner = 'Player0' AND DataName = 'BaseInventoryCapacity'`);
 
         return {
             FirstName: safeExtract(firstNameData),
@@ -169,6 +170,67 @@ export class SaveGameDB {
             PerkPoints: safeExtract(perkData, '0'),
             BaseInventoryCapacity: safeExtract(baseInvCap, '20')
         };
+    }
+
+    async modifyPlayerData(changes : Partial<PlayerData>) : Promise<void>
+    {
+        const fields : Record<keyof PlayerData, [string, string]> = {
+            FirstName: [ 'Player', 'PlayerFirstName' ],
+            LastName: [ 'Player', 'PlayerLastName' ],
+            House: [ 'Player', 'HouseID' ],
+            Exp: [ 'ExperienceManager', 'ExperiencePoints' ],
+            Level: [ 'ExperienceManager', 'LevelUpMult' ],
+            PerkPoints: [ 'Player0', 'PerkPoints' ],
+            BaseInventoryCapacity: [ 'Player0', 'BaseInventoryCapacity' ]
+        };
+        const db = await this.#gameDB;
+        const updates : [string, string, string][] = [];
+        for(const key of Object.keys(changes) as (keyof PlayerData)[])
+        {
+            if(!Object.prototype.hasOwnProperty.call(fields, key))
+            {
+                throw new Error('Unknown Player field.');
+            }
+            const [ owner, name ] = fields[key];
+            const value = changes[key];
+            if(typeof value !== 'string')
+            {
+                throw new Error(`${ key } must be text.`);
+            }
+            const rows = db.exec('SELECT DataValue FROM MiscDataDynamic WHERE DataOwner = ? AND DataName = ?', [ owner, name ]);
+            if(!rows[0] || rows[0].values.length !== 1)
+            {
+                throw new Error(`${ key } is missing or ambiguous in this save; no changes applied.`);
+            }
+            if(value !== String(rows[0].values[0][0]))
+            {
+                if([ 'Exp', 'PerkPoints', 'BaseInventoryCapacity' ].includes(key))
+                {
+                    validatePlayerNumber(value, key);
+                }
+                if([ 'Exp', 'PerkPoints', 'Level' ].includes(key))
+                {
+                    throw new Error(progressionWarning);
+                }
+                updates.push([ value, owner, name ]);
+            }
+        }
+        // Validate the whole patch first, then commit it atomically. No implicit
+        // XP, talent, name, or house/floo updates when another field changes.
+        db.run('BEGIN TRANSACTION');
+        try
+        {
+            for(const values of updates)
+            {
+                db.run('UPDATE MiscDataDynamic SET DataValue = ? WHERE DataOwner = ? AND DataName = ?', values);
+            }
+            db.run('COMMIT');
+        }
+        catch (error)
+        {
+            db.run('ROLLBACK');
+            throw error;
+        }
     }
 
     async modifyPlayerName(playerData: PlayerData): Promise<void> {
@@ -260,46 +322,11 @@ export class SaveGameDB {
     }
 
     async unlockRevelioPages(): Promise<void> {
-        const db = await this.#gameDB;
-
-        // Update CollectionDynamic for RevelioPages (Field Guide Pages)
-        // RevelioPages are simpler - they may only need the CollectionDynamic update
-        db.exec(`UPDATE CollectionDynamic SET ItemState = 'Obtained', UpdateTime = '-2108045320' WHERE CategoryID = 'RevelioPages' AND ItemState <> 'Obtained'`);
-
-        // Also insert into LootItemsDynamic just in case the game checks it
-        db.exec(`
-            INSERT INTO LootItemsDynamic (ItemID, Looted, ItemRandomWeight, ItemAdjustedWeight, Variation)
-            SELECT DISTINCT 
-                ItemID,
-                1 AS Looted,
-                0 AS ItemRandomWeight,
-                0 AS ItemAdjustedWeight,
-                NULL AS Variation
-            FROM CollectionDynamic 
-            WHERE CategoryID = 'RevelioPages' 
-            AND ItemID NOT IN (SELECT DISTINCT ItemID FROM LootItemsDynamic WHERE ItemID IS NOT NULL)
-        `);
+        throw new Error('Revelio Pages editing is disabled: safe unlock and revert semantics are not verified.');
     }
 
     async unlockWandHandles(): Promise<void> {
-        const db = await this.#gameDB;
-
-        // Update CollectionDynamic for Wand Handles
-        db.exec(`UPDATE CollectionDynamic SET ItemState = 'Obtained', UpdateTime = '-2108045320' WHERE CategoryID = 'WandHandles' AND ItemState <> 'Obtained'`);
-
-        // Insert into LootItemsDynamic
-        db.exec(`
-            INSERT INTO LootItemsDynamic (ItemID, Looted, ItemRandomWeight, ItemAdjustedWeight, Variation)
-            SELECT DISTINCT 
-                ItemID,
-                1 AS Looted,
-                0 AS ItemRandomWeight,
-                0 AS ItemAdjustedWeight,
-                NULL AS Variation
-            FROM CollectionDynamic 
-            WHERE CategoryID = 'WandHandles' 
-            AND ItemID NOT IN (SELECT DISTINCT ItemID FROM LootItemsDynamic WHERE ItemID IS NOT NULL)
-        `);
+        throw new Error('Wand Handles editing is disabled: safe unlock and revert semantics are not verified.');
     }
 
     async unlockTraits(): Promise<void> {
@@ -344,21 +371,11 @@ export class SaveGameDB {
     }
 
     async lockRevelioPages(): Promise<void> {
-        const db = await this.#gameDB;
-        db.exec(`UPDATE CollectionDynamic SET ItemState = 'NotObtained' WHERE CategoryID = 'RevelioPages'`);
-        db.exec(`
-            DELETE FROM LootItemsDynamic 
-            WHERE ItemID IN (SELECT ItemID FROM CollectionDynamic WHERE CategoryID = 'RevelioPages')
-        `);
+        throw new Error('Revelio Pages editing is disabled: safe unlock and revert semantics are not verified.');
     }
 
     async lockWandHandles(): Promise<void> {
-        const db = await this.#gameDB;
-        db.exec(`UPDATE CollectionDynamic SET ItemState = 'NotObtained' WHERE CategoryID = 'WandHandles'`);
-        db.exec(`
-            DELETE FROM LootItemsDynamic 
-            WHERE ItemID IN (SELECT ItemID FROM CollectionDynamic WHERE CategoryID = 'WandHandles')
-        `);
+        throw new Error('Wand Handles editing is disabled: safe unlock and revert semantics are not verified.');
     }
 
     async lockTraits(): Promise<void> {

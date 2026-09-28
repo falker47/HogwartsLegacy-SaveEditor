@@ -4,6 +4,14 @@
 
 A Windows desktop manager that connects three pieces of the Hogwarts Legacy save-editing workflow: save discovery and backups, `hlsaves` compression/decompression, and the HLSGE web editor inside a local PyWebView window.
 
+Current source safety limits (after v1.0.5): Microsoft Store/Game Pass WGS containers
+are detected but import/editing is unsupported; use Browse for ordinary Steam/Epic
+`.sav` folders. Do not rename or replace WGS files with this editor. Wand Handles
+and Revelio page actions are disabled pending verified unlock/revert semantics.
+Experience and Talent Points are read-only because talent prerequisites cannot be
+reliably checked. Player Apply changes only edited fields and cannot repair previously
+damaged progression. See the [residual audit and manual test gate](docs/nexus-residuals-audit.md).
+
 **Latest packaged release:** v1.0.5
 
 ## What this project adds
