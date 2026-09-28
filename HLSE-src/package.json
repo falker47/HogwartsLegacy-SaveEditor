@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test": "node --test tests/editor-downloads.test.cjs",
     "lint": "eslint --ext .vue,.ts vite.config.ts src/",
     "lint:fix": "eslint --fix --ext .vue,.ts vite.config.ts src/"
   },

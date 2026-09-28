@@ -24,8 +24,13 @@ def get_editor_bridge_js(app_dir: str) -> str:
     except Exception as e:
         print(f"Warning: Could not load editor_bridge.js: {e}")
     
-    # Fallback inline JS (minimal version)
+    # Keep the fallback behavior identical to assets/editor_bridge.js.
     return """
+    /**
+     * Editor Bridge Script
+     * Handles auto-loading save files and intercepting downloads for pywebview integration.
+     */
+
     (function () {
         'use strict';
 
@@ -89,7 +94,19 @@ def get_editor_bridge_js(app_dir: str) -> str:
          * @param {string} message - Error message to display
          */
         function showError(overlay, message) {
-            overlay.innerHTML = '<div style="text-align:center;color:#f44336;font-size:28px;">❌ Error<br><small style="font-size:14px;">' + message + '</small></div>';
+            overlay.textContent = 'Error: ' + message;
+            overlay.style.color = '#f44336';
+            overlay.style.whiteSpace = 'pre-wrap';
+        }
+
+        function readBlob(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = () => reject(reader.error || new Error('Could not read download'));
+                reader.onabort = () => reject(new Error('Download read cancelled'));
+                reader.readAsDataURL(blob);
+            });
         }
 
         /**
@@ -109,38 +126,40 @@ def get_editor_bridge_js(app_dir: str) -> str:
                     '<div style="text-align:center;color:white;font-size:28px;">💾 Saving...<br><small style="font-size:16px;">Please wait</small></div>'
                 );
 
+                // Explicit contract with saveFilePage.vue and fileHandler.vue.
+                // Both payload types use application/octet-stream; unknown names fail closed.
+                const fileName = target.getAttribute('download');
+                const isDatabase = fileName === 'sqldb1.sqlite' || fileName === 'sqldb2.sqlite';
+                const isSave = fileName === 'hlsave.sav' || fileName === 'hlcustomsave.sav';
                 const href = target.href;
-                if (!href || !href.startsWith('blob:')) {
-                    showError(overlay, 'Invalid download link');
-                    setTimeout(() => overlay.remove(), 3000);
-                    return;
-                }
-
                 try {
+                    if (!isDatabase && !isSave) {
+                        throw new Error('Unsupported download');
+                    }
+                    if (!href || !href.startsWith('blob:')) {
+                        throw new Error('Invalid download link');
+                    }
                     const response = await fetch(href);
                     const blob = await response.blob();
-                    const reader = new FileReader();
+                    const b64 = await readBlob(blob);
+                    const result = isDatabase
+                        ? await pywebview.api.export_database(b64, fileName)
+                        : await pywebview.api.save_edited_file(b64);
 
-                    reader.onload = async function () {
-                        try {
-                            const b64 = reader.result.split(',')[1];
-                            const result = await pywebview.api.save_edited_file(b64);
-
-                            if (result.success) {
-                                showSuccess(overlay);
-                                setTimeout(async () => {
-                                    await pywebview.api.close_window();
-                                }, 1500);
-                            } else {
-                                showError(overlay, result.error);
-                                setTimeout(() => overlay.remove(), 3000);
-                            }
-                        } catch (err) {
-                            showError(overlay, err.message);
-                            setTimeout(() => overlay.remove(), 3000);
-                        }
-                    };
-                    reader.readAsDataURL(blob);
+                    if (isDatabase && result.cancelled) {
+                        overlay.remove();
+                    } else if (!result.success) {
+                        throw new Error(result.error || 'Download failed');
+                    } else if (isDatabase) {
+                        overlay.textContent = 'Database exported: ' + fileName;
+                        overlay.style.color = '#4CAF50';
+                        setTimeout(() => overlay.remove(), 1500);
+                    } else {
+                        showSuccess(overlay);
+                        setTimeout(async () => {
+                            await pywebview.api.close_window();
+                        }, 1500);
+                    }
                 } catch (err) {
                     showError(overlay, err.message);
                     setTimeout(() => overlay.remove(), 3000);
@@ -204,6 +223,54 @@ class EditorApi:
     def get_file_name(self) -> str:
         """Return the filename for the editor."""
         return self.file_name
+
+    def export_database(self, b64_data: str, file_name: str) -> dict:
+        """Export raw SQLite bytes to a new file, without any save status or write-back.
+
+        Refuse existing destinations (including links) so saves and backups cannot
+        be overwritten, even if the native dialog permits selecting them.
+        """
+        try:
+            if file_name not in ("sqldb1.sqlite", "sqldb2.sqlite"):
+                raise ValueError("Unsupported database download")
+            if not isinstance(b64_data, str):
+                raise ValueError("Invalid database payload")
+            binary = base64.b64decode(b64_data, validate=True)
+            if not binary.startswith(b"SQLite format 3\x00"):
+                raise ValueError("Invalid SQLite database payload")
+            if self._window is None:
+                raise RuntimeError("Editor window is not available")
+
+            # SAVE_DIALOG is supported by the project's pywebview >=4,<6 range.
+            import webview
+            selection = self._window.create_file_dialog(
+                webview.SAVE_DIALOG, save_filename=file_name,
+                file_types=("SQLite database (*.sqlite)",)
+            )
+            if not selection:
+                return {"success": False, "cancelled": True}
+            # WinForms returns a string; other backends return a sequence.
+            destination = Path(selection if isinstance(selection, str) else selection[0])
+            protected = (Path(self.original_save), Path(self.file_path))
+            if destination.resolve() in (path.resolve() for path in protected):
+                raise ValueError("Choose a new SQLite file, not the loaded save")
+            if destination.suffix.lower() != ".sqlite":
+                raise ValueError("Choose a filename ending in .sqlite")
+
+            try:
+                output = destination.open('xb')
+            except FileExistsError:
+                raise ValueError("Destination already exists; choose a new filename") from None
+            try:
+                with output:
+                    output.write(binary)
+            except Exception:
+                destination.unlink(missing_ok=True)
+                raise
+            return {"success": True}
+        except Exception as e:
+            # Dialog/backend, decoding and I/O failures stay local to this export.
+            return {"success": False, "error": str(e)}
 
     def save_edited_file(self, b64_data: str) -> dict:
         """
