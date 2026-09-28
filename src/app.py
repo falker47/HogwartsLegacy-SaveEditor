@@ -35,7 +35,9 @@ from .config import (
 )
 from .editor import launch_editor_process
 from .utils import format_file_size, parse_save_filename
-from .save_paths import WGS_LIMITATION, find_hogwarts_wgs, require_loose_save_path
+from .save_paths import (
+    WGS_LIMITATION, export_wgs_saves, find_hogwarts_wgs, require_loose_save_path
+)
 
 
 # Choose base class based on drag-drop availability
@@ -388,9 +390,11 @@ class App(BaseWindow):
         ctk.CTkButton(btns, text="📁 Browse", command=self._browse_save_directory,
             height=28).grid(row=0, column=1, padx=(5, 0), pady=(0, 5), sticky="ew")
         ctk.CTkButton(btns, text="🎯 Auto Detect", command=self._auto_detect_save_directory,
-            height=28).grid(row=1, column=0, padx=(0, 5), sticky="ew")
+            height=28).grid(row=1, column=0, padx=(0, 5), pady=(0, 5), sticky="ew")
         ctk.CTkButton(btns, text="📂 Open Folder", command=self._open_save_folder,
-            height=28).grid(row=1, column=1, padx=(5, 0), sticky="ew")
+            height=28).grid(row=1, column=1, padx=(5, 0), pady=(0, 5), sticky="ew")
+        ctk.CTkButton(btns, text="🎮 Export Game Pass Saves", command=self._export_game_pass_saves,
+            height=28).grid(row=2, column=0, columnspan=2, sticky="ew")
 
         # RIGHT PANEL
         right = ctk.CTkFrame(main_frame)
@@ -541,7 +545,9 @@ class App(BaseWindow):
         base = Path(local_app_data) / "Hogwarts Legacy" / "Saved" / "SaveGames"
         if not local_app_data or not base.exists():
             self._log("⚠️ Steam/Epic save dir not found. Use Browse for an ordinary .sav folder.")
-            self.path_label.configure(text="WGS unsupported" if wgs else "Not found")
+            self.path_label.configure(
+                text="Game Pass WGS detected — use Export Game Pass Saves" if wgs else "Not found"
+            )
             return False
 
         candidates = []
@@ -578,6 +584,38 @@ class App(BaseWindow):
             self._log(f"📂 Opened save folder: {self.save_directory}")
         else:
             messagebox.showinfo("No Save Folder", "No save folder is currently selected.")
+
+    def _export_game_pass_saves(self) -> None:
+        """Export recognized WGS payloads to ordinary .sav files without WGS write-back."""
+        wgs_root = find_hogwarts_wgs(os.environ.get("LOCALAPPDATA", ""))
+        if not wgs_root:
+            messagebox.showinfo("Game Pass Saves", "No Hogwarts Legacy Game Pass WGS folder was detected.")
+            return
+
+        destination = filedialog.askdirectory(
+            title="Choose a folder for exported Game Pass saves",
+            initialdir=Path.home()
+        )
+        if not destination:
+            return
+
+        try:
+            outputs = export_wgs_saves(wgs_root, Path(destination))
+            if not self._set_save_directory(Path(destination), "Game Pass export"):
+                raise ValueError("The export destination could not be selected for editing.")
+            self.config["save_directory"] = str(self.save_directory)
+            self.config["auto_detect_saves"] = False
+            self._save_config()
+            self._log(f"✅ Exported {len(outputs)} Game Pass save(s) without modifying WGS.")
+            messagebox.showinfo(
+                "Game Pass Export Complete",
+                f"Exported {len(outputs)} save(s) to:\n{self.save_directory}\n\n"
+                "These are ordinary editable copies. The editor will NOT write changes "
+                "back into the Game Pass WGS container or cloud save."
+            )
+        except (ValueError, OSError, shutil.Error) as exc:
+            self._log(f"❌ Game Pass export failed: {exc}")
+            messagebox.showerror("Game Pass Export Failed", str(exc))
 
     def _browse_save_directory(self) -> None:
         """Browse for save directory manually."""
