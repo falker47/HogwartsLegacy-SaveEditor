@@ -231,8 +231,13 @@ export class SaveGameDB {
             BaseInventoryCapacity: [ 'Player0', 'BaseInventoryCapacity' ]
         };
         const db = await this.#gameDB;
-        const progressionContext = await this.getProgressionContext();
-        validateProgressionChanges(changes, progressionContext, options);
+        const changesProgression = Object.prototype.hasOwnProperty.call(changes, 'Exp')
+            || Object.prototype.hasOwnProperty.call(changes, 'PerkPoints');
+        if(changesProgression)
+        {
+            const progressionContext = await this.getProgressionContext();
+            validateProgressionChanges(changes, progressionContext, options);
+        }
         const updates : [string, string, string][] = [];
         for(const key of Object.keys(changes) as (keyof PlayerData)[])
         {
