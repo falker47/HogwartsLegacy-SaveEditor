@@ -42,6 +42,13 @@ jobs:
         run: npm test
       - name: Build single-file editor
         run: npm run build
+      - name: Upload integrated editor HTML
+        uses: actions/upload-artifact@v4
+        with:
+          name: integrated-hlsge-html
+          path: HLSE-src/dist/client/index.html
+          if-no-files-found: error
+          retention-days: 1
 
   release-smoke:
     runs-on: windows-latest
