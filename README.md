@@ -4,7 +4,7 @@
 
 A Windows desktop manager that connects three pieces of the Hogwarts Legacy save-editing workflow: save discovery and backups, `hlsaves` compression/decompression, and the HLSGE web editor inside a local PyWebView window.
 
-**Latest packaged release:** v1.0.4
+**Latest packaged release:** v1.0.5
 
 ## What this project adds
 
@@ -13,7 +13,7 @@ A Windows desktop manager that connects three pieces of the Hogwarts Legacy save
 - automatic backups before an edited save is written back;
 - an integrated PyWebView workflow, so the editor opens next to the save manager instead of requiring manual upload/download steps;
 - discovery of the required Oodle DLL from common Steam/Epic installations, plus an explicit user-triggered wider search;
-- a small Python bridge that intercepts the editor's download and recompresses the edited database into the original save.
+- a small Python bridge that recompresses full-save downloads into the original save and exports raw DB1/DB2 downloads separately as SQLite files.
 
 This repository is an integration project. It does **not** claim authorship of the external save-format/editor components listed under [Third-party components](#third-party-components).
 
@@ -55,7 +55,7 @@ The desktop layer is Python + CustomTkinter. The embedded editor source lives un
 
 The application first checks common Hogwarts Legacy Steam/Epic locations. If those checks fail, the user may explicitly start a broader local search or select the DLL manually.
 
-The current v1.0.4 code also contains a hash-pinned fallback download from the third-party `new-world-tools/go-oodle` release assets. That source is **not an official Epic Games distribution channel**, and the DLL itself is not covered by this repository's MIT license. Prefer using the copy from your own installed game when available.
+The current v1.0.5 code also contains a hash-pinned fallback download from the third-party `new-world-tools/go-oodle` release assets. That source is **not an official Epic Games distribution channel**, and the DLL itself is not covered by this repository's MIT license. Prefer using the copy from your own installed game when available.
 
 The DLL is intentionally excluded from this repository and from release packaging.
 
@@ -88,6 +88,8 @@ python main.py
 4. Make changes in the integrated editor.
 5. Use the editor's **Download** action.
 6. The bridge writes the edited database and asks `hlsaves` to recompress it into the original save path.
+
+Raw DB1/DB2 downloads instead export SQLite files to a chosen destination without save recompression or write-back to the original save.
 
 Backups are stored in a `Backups` directory under the selected save folder. Keep an independent backup before experimenting with save editors.
 
@@ -157,7 +159,8 @@ See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [CREDITS.md](CREDITS.md
 
 ## Release history
 
-- **v1.0.4** — revert/unlock fixes and the current packaged release.
+- **v1.0.5** — maintenance release: fixes raw DB1/DB2 exports so database downloads bypass save recompression; corrects hlsavetool DB2 tail parsing through the minimal HL-02A patch; vendors the reproducible, hash-verified hlsavetool package with its license, patch and provenance; hardens CI, the release flow and third-party provenance.
+- **v1.0.4** — revert/unlock fixes.
 - **v1.0.3** — configuration persistence, non-blocking DLL discovery flow, refactoring and editor enhancements.
 - **v1.0.2** — direct local editor loading instead of the previous local-server path.
 - **v1.0.1** — hash verification for the optional DLL download.

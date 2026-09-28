@@ -42,7 +42,7 @@ The repository history and connected email search performed during the September
 
 The DLL is proprietary third-party software. It is intentionally ignored by Git and excluded from release packaging.
 
-The application prefers locating a compatible copy from the user's installed games. Current v1.0.4 code also offers a hash-pinned third-party fallback URL hosted in the `new-world-tools/go-oodle` GitHub release assets. That hosting location does not make the DLL part of the MIT-licensed codebase or an official distribution channel.
+The application prefers locating a compatible copy from the user's installed games. Current v1.0.5 code also offers a hash-pinned third-party fallback URL hosted in the `new-world-tools/go-oodle` GitHub release assets. That hosting location does not make the DLL part of the MIT-licensed codebase or an official distribution channel.
 
 ## 4. Hogwarts Legacy and related marks
 
