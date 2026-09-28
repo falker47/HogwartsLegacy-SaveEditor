@@ -11,7 +11,10 @@ from unittest.mock import Mock
 import pytest
 
 from src.editor import EditorApi
-from src.save_paths import find_hogwarts_wgs, is_wgs_path, require_loose_save_path
+from src.save_paths import (
+    discover_wgs_save_payloads, export_wgs_saves, find_hogwarts_wgs,
+    is_wgs_path, require_loose_save_path
+)
 
 
 @pytest.fixture
@@ -54,6 +57,8 @@ def app(monkeypatch):
     instance.save_list_frame = Mock()
     instance.save_list_frame.winfo_children.return_value = []
     monkeypatch.setattr(module.messagebox, "showwarning", Mock())
+    monkeypatch.setattr(module.messagebox, "showinfo", Mock())
+    monkeypatch.setattr(module.messagebox, "showerror", Mock())
     return instance, module
 
 
@@ -125,7 +130,9 @@ def test_wgs_only_reports_limitation_without_selecting_it(app, tmp_path, wgs, mo
     assert instance.save_directory is None
     assert instance.backup_dir is None
     instance._refresh_save_list.assert_not_called()
-    instance.path_label.configure.assert_called_with(text="WGS unsupported")
+    instance.path_label.configure.assert_called_with(
+        text="Game Pass WGS detected — use Export Game Pass Saves"
+    )
 
 
 def test_config_selection_and_browse_refuse_wgs_before_backup_or_config_write(app, wgs, monkeypatch):
@@ -186,6 +193,65 @@ def test_force_auto_detect_switches_back_from_manual_mode_and_persists(app, tmp_
     assert instance.config["auto_detect_saves"] is True
     assert instance.config["save_directory"] == str(canonical.resolve())
     instance._save_config.assert_called_once()
+
+
+def test_wgs_payload_discovery_and_export_are_read_only_and_byte_exact(tmp_path, wgs):
+    root, payload = wgs
+    source_bytes = b"GVAS synthetic-prefix HL-03-10 synthetic-save-body"
+    payload.write_bytes(source_bytes)
+    (payload.parent / "metadata").write_bytes(b"no save tag here")
+    destination = tmp_path / "exported"
+
+    discovered = discover_wgs_save_payloads(root)
+    assert discovered == {"HL-03-10": payload}
+
+    outputs = export_wgs_saves(root, destination)
+    assert outputs == [destination / "HL-03-10.sav"]
+    assert outputs[0].read_bytes() == source_bytes
+    assert payload.read_bytes() == source_bytes
+
+
+def test_wgs_export_fails_closed_on_conflicting_payloads(tmp_path, wgs):
+    root, payload = wgs
+    payload.write_bytes(b"GVAS first HL-03-10 payload")
+    other = payload.parent.parent / "other" / "SECOND"
+    other.parent.mkdir()
+    other.write_bytes(b"GVAS second different HL-03-10 payload")
+
+    with pytest.raises(ValueError, match="Multiple different Game Pass payloads"):
+        discover_wgs_save_payloads(root)
+
+
+def test_wgs_export_refuses_existing_destination_without_overwrite(tmp_path, wgs):
+    root, payload = wgs
+    payload.write_bytes(b"GVAS source HL-03-10 payload")
+    destination = tmp_path / "exported"
+    destination.mkdir()
+    existing = destination / "HL-03-10.sav"
+    existing.write_bytes(b"sentinel")
+
+    with pytest.raises(ValueError, match="Destination already contains"):
+        export_wgs_saves(root, destination)
+    assert existing.read_bytes() == b"sentinel"
+
+
+def test_app_exports_gamepass_saves_then_selects_export_folder(app, tmp_path, wgs, monkeypatch):
+    instance, module = app
+    root, payload = wgs
+    payload.write_bytes(b"GVAS source HL-03-10 payload")
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    destination = tmp_path / "gamepass-export"
+    monkeypatch.setattr(module.filedialog, "askdirectory", lambda **_: str(destination))
+
+    instance._export_game_pass_saves()
+
+    assert (destination / "HL-03-10.sav").read_bytes() == payload.read_bytes()
+    assert instance.save_directory == destination.resolve()
+    assert instance.config["save_directory"] == str(destination.resolve())
+    assert instance.config["auto_detect_saves"] is False
+    instance._save_config.assert_called_once()
+    module.messagebox.showinfo.assert_called_once()
+    module.messagebox.showerror.assert_not_called()
 
 
 def test_refresh_and_edit_refuse_wgs_even_if_state_was_set_directly(app, wgs):
