@@ -6,41 +6,55 @@ $ErrorActionPreference = "Stop"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 if (-not $Destination) {
-    $Destination = Join-Path $RepoRoot "assets\hlsaves.exe"
+    $Destination = Join-Path $RepoRoot "assets/hlsaves.exe"
+}
+$Destination = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Destination)
+
+$Version = "2.0.1-hl02a.1"
+$ArchivePath = Join-Path $RepoRoot "third_party/hlsavetool/HLSaveToolv$Version.zip"
+$ExpectedArchiveSha256 = "eeedcc913d1ea916e9edc6b599002bac7823a9989050b79851b5f9f02c0b7a75"
+$ExpectedExeSha256 = "bdf28ae18dc5ecf049af37ca863085851f2cd0f5b22895f9637c5820c8d0f70e"
+
+if (-not (Test-Path -LiteralPath $ArchivePath -PathType Leaf)) {
+    throw "Vendored hlsavetool archive is missing: $ArchivePath. Restore it from this repository."
+}
+$ActualArchiveSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $ArchivePath).Hash.ToLowerInvariant()
+if ($ActualArchiveSha256 -ne $ExpectedArchiveSha256) {
+    throw "Vendored hlsavetool archive SHA256 mismatch. Expected $ExpectedArchiveSha256, got $ActualArchiveSha256."
 }
 
-$Version = "2.0.1"
-$ArchiveUrl = "https://github.com/gx570s/hlsavetool/releases/download/v$Version/HLSaveToolv$Version.zip"
-$ExpectedArchiveSha256 = "a5733229c767f451d0b2612df88af2823e84e769b482d9b0eebe7f6fc09472ed"
-
 $TempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("hlsavetool-" + [guid]::NewGuid().ToString("N"))
-$ArchivePath = Join-Path $TempRoot "hlsavetool.zip"
 $ExtractPath = Join-Path $TempRoot "extract"
 
 try {
-    New-Item -ItemType Directory -Force -Path $TempRoot | Out-Null
-    New-Item -ItemType Directory -Force -Path $ExtractPath | Out-Null
+    New-Item -ItemType Directory -Path $ExtractPath -Force | Out-Null
+    Write-Host "Installing verified vendored hlsavetool v$Version..."
+    Expand-Archive -LiteralPath $ArchivePath -DestinationPath $ExtractPath
+
+    $Executables = @(Get-ChildItem -LiteralPath $ExtractPath -Recurse -File -Filter "hlsaves.exe")
+    if ($Executables.Count -ne 1) {
+        throw "The vendored hlsavetool archive must contain exactly one hlsaves.exe."
+    }
+    $Exe = $Executables[0]
+    $ActualExeSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $Exe.FullName).Hash.ToLowerInvariant()
+    if ($ActualExeSha256 -ne $ExpectedExeSha256) {
+        throw "Extracted hlsaves.exe SHA256 mismatch. Expected $ExpectedExeSha256, got $ActualExeSha256."
+    }
+
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Destination) | Out-Null
-
-    Write-Host "Downloading hlsavetool v$Version from upstream GitHub release..."
-    Invoke-WebRequest -Uri $ArchiveUrl -OutFile $ArchivePath -UseBasicParsing
-
-    $ActualArchiveSha256 = (Get-FileHash -Algorithm SHA256 -Path $ArchivePath).Hash.ToLowerInvariant()
-    if ($ActualArchiveSha256 -ne $ExpectedArchiveSha256) {
-        throw "hlsavetool archive SHA256 mismatch. Expected $ExpectedArchiveSha256, got $ActualArchiveSha256."
+    Copy-Item -Force -LiteralPath $Exe.FullName -Destination $Destination
+    $InstalledExeSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $Destination).Hash.ToLowerInvariant()
+    if ($InstalledExeSha256 -ne $ExpectedExeSha256) {
+        throw "Installed hlsaves.exe SHA256 mismatch. Expected $ExpectedExeSha256, got $InstalledExeSha256."
     }
-
-    Expand-Archive -Path $ArchivePath -DestinationPath $ExtractPath -Force
-    $Exe = Get-ChildItem -Path $ExtractPath -Recurse -File -Filter "hlsaves.exe" | Select-Object -First 1
-    if (-not $Exe) {
-        throw "The verified upstream archive did not contain hlsaves.exe."
-    }
-
-    Copy-Item -Force -Path $Exe.FullName -Destination $Destination
-    Write-Host "Installed hlsaves.exe v$Version to $Destination"
+    Write-Host "Installed verified hlsaves.exe v$Version to $Destination"
 }
 finally {
-    if (Test-Path $TempRoot) {
-        Remove-Item -Recurse -Force $TempRoot
+    if (Test-Path -LiteralPath $TempRoot) {
+        $ResolvedTempRoot = (Resolve-Path -LiteralPath $TempRoot).ProviderPath
+        if ($ResolvedTempRoot -ne [System.IO.Path]::GetFullPath($TempRoot)) {
+            throw "Unexpected temporary directory path; refusing cleanup: $ResolvedTempRoot"
+        }
+        Remove-Item -Recurse -Force -LiteralPath $ResolvedTempRoot
     }
 }

@@ -8,11 +8,9 @@ if not exist "assets\HLSGE.html" (
     exit /b 1
 )
 
-if not exist "assets\hlsaves.exe" (
-    echo [i] hlsaves.exe not found locally; acquiring pinned upstream v2.0.1...
-    powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\fetch_hlsaves.ps1"
-    if errorlevel 1 exit /b 1
-)
+echo [i] Installing verified vendored hlsavetool v2.0.1-hl02a.1...
+powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\fetch_hlsaves.ps1"
+if errorlevel 1 exit /b 1
 
 set PYTHON_CMD=
 py -3.12 --version >nul 2>&1

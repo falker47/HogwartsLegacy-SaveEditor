@@ -78,7 +78,7 @@ python -m pip install -r requirements.txt
 python main.py
 ```
 
-`fetch_hlsaves.ps1` acquires the pinned upstream hlsavetool v2.0.1 release and verifies its published archive SHA-256 before installing `assets/hlsaves.exe`. The generated executable stays ignored by Git.
+`fetch_hlsaves.ps1` installs the vendored **hlsavetool v2.0.1 + HL-02A** package (`2.0.1-hl02a.1`) without downloading this dependency. It verifies the ZIP, extracted executable and final destination SHA-256 before reporting success. The generated `assets/hlsaves.exe` stays ignored by Git. The minimal DB2 tail-parsing patch, hashes and reproducible build provenance are public under [third_party/hlsavetool](third_party/hlsavetool/PROVENANCE.md). The Oodle DLL is not included.
 
 ## Usage
 
@@ -100,7 +100,7 @@ python -m pip install pytest
 pytest -q
 ```
 
-The current unit suite covers utility-level save-name parsing and file-size formatting. It does **not** constitute end-to-end save-integrity certification.
+The unit suite covers utility-level save-name parsing, file-size formatting and offline converter installation, including corrupt ZIP/EXE rejection and destination verification. Installer tests use Windows PowerShell or `pwsh` and are skipped when neither is available. It does **not** constitute end-to-end save-integrity certification.
 
 ### Embedded editor build
 
@@ -120,7 +120,7 @@ On Windows:
 build_release.bat
 ```
 
-The release builder acquires the pinned hlsavetool release with SHA-256 verification, rebuilds the embedded editor, runs the Python tests, builds the executable with PyInstaller, and assembles the distributable while deliberately excluding the Oodle DLL.
+The release builder installs the hash-pinned vendored converter, rebuilds the embedded editor, runs the Python tests, builds the executable with PyInstaller, and assembles the distributable with the converter license, patch and provenance while excluding the Oodle DLL. Python/Node dependency installation may still require network access; converter acquisition does not.
 
 GitHub Actions checks Python tests and the frontend production build on Linux, plus a full Windows release smoke build that verifies the expected package contents and confirms that the Oodle DLL is absent.
 
@@ -134,9 +134,10 @@ GitHub Actions checks Python tests and the frontend production build on Linux, p
 │   ├── HLSGE.html          # built embedded editor artifact
 │   └── editor_bridge.js
 ├── scripts/
-│   └── fetch_hlsaves.ps1   # verified acquisition of upstream hlsavetool
+│   └── fetch_hlsaves.ps1   # offline, hash-verified converter installation
 ├── third_party/
-│   └── hlsavetool-LICENSE.txt
+│   ├── hlsavetool-LICENSE.txt
+│   └── hlsavetool/         # pinned ZIP, local patch and provenance
 ├── HLSE-src/               # embedded editor source/customizations
 ├── tests/
 ├── docs/
@@ -148,7 +149,7 @@ GitHub Actions checks Python tests and the frontend production build on Linux, p
 
 This project depends on components with their own provenance and terms:
 
-- **hlsaves / hlsavetool** — compression/decompression utility by Katt; upstream source is MIT-licensed. The project pins v2.0.1 and verifies the release archive before packaging it.
+- **hlsaves / hlsavetool** — MIT compression/decompression utility credited to Katt, via `gx570s/hlsavetool` and parent `topche-katt/hlsavetool`. This project vendors a reproducible v2.0.1 build with the minimal HL-02A DB2 tail fix and verifies both archive and executable hashes.
 - **HLSGE / Hogwarts Legacy Save Game Editor** — embedded web editor derived from the Nexus Mods project; its upstream permissions are separate from this repository's license.
 - **oo2core_9_win64.dll** — proprietary Oodle runtime component; not distributed by this repository.
 

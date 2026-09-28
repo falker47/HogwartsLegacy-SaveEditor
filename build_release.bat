@@ -36,7 +36,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [1/7] Acquiring pinned hlsavetool dependency...
+echo [1/7] Installing verified vendored hlsavetool dependency...
 powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\fetch_hlsaves.ps1"
 if errorlevel 1 exit /b 1
 
@@ -116,6 +116,9 @@ copy /Y "LICENSE" "%RELEASE_DIR%\" >nul
 copy /Y "CREDITS.md" "%RELEASE_DIR%\" >nul
 copy /Y "THIRD_PARTY_NOTICES.md" "%RELEASE_DIR%\" >nul
 copy /Y "third_party\hlsavetool-LICENSE.txt" "%RELEASE_DIR%\hlsavetool-LICENSE.txt" >nul
+mkdir "%RELEASE_DIR%\third_party\hlsavetool"
+copy /Y "third_party\hlsavetool\PROVENANCE.md" "%RELEASE_DIR%\third_party\hlsavetool\" >nul
+copy /Y "third_party\hlsavetool\HL-02A-db2-tail.patch" "%RELEASE_DIR%\third_party\hlsavetool\" >nul
 
 (
 echo HOGWARTS LEGACY SAVE EDITOR
@@ -124,7 +127,9 @@ echo 1. Run HogwartsLegacy-SaveEditor.exe.
 echo 2. Select a save and choose Edit Save File.
 echo 3. Save from the embedded editor to write the edited database back.
 echo.
-echo hlsaves.exe is pinned to upstream hlsavetool v2.0.1 and acquired during the release build with SHA-256 verification.
+echo hlsaves.exe derives from third-party hlsavetool v2.0.1 with the minimal HL-02A DB2 tail fix.
+echo Package 2.0.1-hl02a.1 is installed from the vendored ZIP with archive and executable SHA-256 verification.
+echo See third_party\hlsavetool for the patch and reproducible build provenance.
 echo The Oodle DLL oo2core_9_win64.dll is NOT included.
 echo The app first looks for it in supported local game installations.
 echo If needed, choose the explicit search/manual-selection path in the app.

@@ -17,11 +17,9 @@ if errorlevel 1 (
     exit /b 1
 )
 
-if not exist "assets\hlsaves.exe" (
-    echo Acquiring pinned hlsavetool dependency...
-    powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\fetch_hlsaves.ps1"
-    if errorlevel 1 exit /b 1
-)
+echo Installing verified vendored hlsavetool dependency...
+powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\fetch_hlsaves.ps1"
+if errorlevel 1 exit /b 1
 
 echo [1/5] Installing development dependencies...
 python -m pip install -r requirements-dev.txt
