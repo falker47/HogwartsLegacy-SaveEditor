@@ -1,0 +1,32 @@
+From 480059cb237724e8605505e62a4e516a58adbce3 Mon Sep 17 00:00:00 2001
+From: falker <maurizio.falconi47@gmail.com>
+Date: Mon, 28 Sep 2026 17:31:02 +0200
+Subject: [PATCH] fix: preserve DB2 tail position after property parsing
+
+---
+ src/hlsaves.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/src/hlsaves.c b/src/hlsaves.c
+index d91865e..f2e1e15 100644
+--- a/src/hlsaves.c
++++ b/src/hlsaves.c
+@@ -259,11 +259,10 @@ int main(const int argc, const char* argv[]) {
+         memcpy(&signature2, ((UArrayProperty*)property2->data)->value, 4);
+         printf_verbose(verbose, "ByteProperty value signature: 0x%08X", _byteswap_ulong(signature2));
+ 
+-        size_t property2_total = property2->length + RDI_UPROPERTY_DATA_OFFSET;
+-
+-        /* tail = everything after property2 */
+-        tail.address = remaining + between.size + property2_total;
+-        tail.size = remaining_size - between.size - property2_total;
++        /* parse_uproperty advanced address2 past the complete property.
++         * RawExclusiveImage has a different name length from RawDatabaseImage. */
++        tail.address = address2;
++        tail.size = (size_t)((buffer + buffer_size) - address2);
+     }
+     else {
+         printf_verbose(verbose, "No second RawExclusiveImage found; processing only the first");
+-- 
+2.45.1.windows.1
+
