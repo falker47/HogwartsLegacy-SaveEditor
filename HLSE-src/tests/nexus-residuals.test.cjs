@@ -226,6 +226,19 @@ test('Missing Player rows stay absent and reads retain the existing null-safety'
     assert.deepEqual(await h.inspect('SELECT * FROM MiscDataDynamic'), []);
 });
 
+test('Non-progression edits do not depend on progression rows', async t => {
+    const h = await fixture(t);
+    const db = new h.SQL.Database(await h.state.saveGameDB.getDBBytes());
+    db.run("DELETE FROM MiscDataDynamic WHERE DataName IN ('ExperiencePoints','PerkPoints')");
+    h.state.saveGameDB = new (h.load('resources/saveGameDB.ts').SaveGameDB)(db.export());
+    db.close();
+
+    await h.manager.modifyPlayerData({ FirstName: 'Still editable' });
+
+    assert.equal((await h.manager.getPlayerData()).FirstName, 'Still editable');
+    assert.deepEqual(await h.inspect('SELECT * FROM UpdateAudit'), [['Player', 'PlayerFirstName']]);
+});
+
 test('SQL failure rolls back prior fields in the same Apply', async t => {
     const h = await fixture(t);
     const db = new h.SQL.Database(await h.state.saveGameDB.getDBBytes());
