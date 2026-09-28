@@ -48,8 +48,8 @@ async function fixture(t) {
             PRIMARY KEY(DataOwner, DataName));
         INSERT INTO MiscDataDynamic VALUES
             ('Player', 'PlayerFirstName', 'Test'), ('Player', 'PlayerLastName', 'Wizard'),
-            ('Player', 'HouseID', 'Ravenclaw'), ('ExperienceManager', 'ExperiencePoints', '1234'),
-            ('ExperienceManager', 'LevelUpMult', '1'), ('Player0', 'PerkPoints', '3'),
+            ('Player', 'HouseID', 'Ravenclaw'), ('ExperienceManager', 'ExperiencePoints', '12025'),
+            ('ExperienceManager', 'LevelUpMult', '16'), ('Player0', 'PerkPoints', '3'),
             ('Player0', 'BaseInventoryCapacity', '20'), ('Other', 'BaseInventoryCapacity', '7');
         CREATE TABLE UpdateAudit(DataOwner TEXT, DataName TEXT);
         CREATE TRIGGER audit AFTER UPDATE ON MiscDataDynamic BEGIN
@@ -62,7 +62,11 @@ async function fixture(t) {
             ('WandHandles','Exploration','legacy-handle','Obtained',123),
             ('Exploration','Hogwarts','lore-entry','Obtained',123),
             ('RevelioPages','Hogwarts','legacy-page','Obtained',123),
+            ('Exploration','Hogwarts','LORE_Test_A','Unknown',0),
+            ('Exploration','Hogwarts','LORE_Test_B','Obtained',123),
             ('Traits','Exploration','other','Obtained',123);
+        CREATE TABLE PerkDynamic(PerkID TEXT PRIMARY KEY);
+        INSERT INTO PerkDynamic VALUES ('perk-a');
         CREATE TABLE LocksDynamic(LockID TEXT PRIMARY KEY, ELockState INTEGER);
         INSERT INTO LocksDynamic VALUES ('h01_m01',0), ('other-lock',1);
         CREATE TABLE LootItemsDynamic(ItemID TEXT, Looted INTEGER, ItemRandomWeight INTEGER, ItemAdjustedWeight INTEGER, Variation TEXT);
@@ -95,7 +99,7 @@ test('Player page applies only the dirty field, preserves progression and other 
     assert.equal(h.page.playerDataChanged.value, false);
     assert.deepEqual(await h.inspect('SELECT * FROM UpdateAudit'), [['Player', 'PlayerFirstName']]);
     assert.deepEqual(await h.inspect("SELECT DataName, DataValue FROM MiscDataDynamic WHERE DataName IN ('ExperiencePoints','PerkPoints') ORDER BY DataName"),
-        [['ExperiencePoints', '1234'], ['PerkPoints', '3']]);
+        [['ExperiencePoints', '12025'], ['PerkPoints', '3']]);
     assert.deepEqual(await h.inspect('SELECT * FROM LocksDynamic'), [['h01_m01', 0], ['other-lock', 1]]);
     h.page.playerData.value.LastName = 'Discard this';
     await h.page.resetPlayerData();
@@ -116,20 +120,61 @@ test('An unchanged full form and a name changed back produce no UPDATEs', async 
     assert.deepEqual(await h.inspect('SELECT * FROM UpdateAudit'), []);
 });
 
-for (const field of ['Exp', 'PerkPoints', 'Level']) {
-    test(`Progression ${field} change is refused atomically through manager and page`, async t => {
-        const h = await fixture(t);
-        const before = await h.state.saveGameDB.getDBBytes();
-        await assert.rejects(h.manager.modifyPlayerData({ FirstName: 'Must not persist', [field]: '999' }), /read-only/);
-        assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
-        await h.page.refreshData();
-        h.page.playerData.value[field] = '999';
-        await h.page.savePlayerData();
-        assert.match(h.page.errorMessage.value, /read-only/);
-        assert.equal(h.page.playerDataChanged.value, true);
-        assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
-    });
-}
+test('Talent Points are explicitly editable within the vanilla spent + unspent invariant', async t => {
+    const h = await fixture(t);
+    await h.manager.modifyPlayerData({ PerkPoints: '5' });
+    assert.deepEqual(await h.inspect("SELECT DataValue FROM MiscDataDynamic WHERE DataOwner='Player0' AND DataName='PerkPoints'"), [['5']]);
+    assert.deepEqual(await h.inspect("SELECT PerkID FROM PerkDynamic"), [['perk-a']]);
+    assert.deepEqual(await h.inspect('SELECT * FROM UpdateAudit'), [['Player0', 'PerkPoints']]);
+});
+
+test('Talent Points reject totals above the vanilla lifetime maximum atomically', async t => {
+    const h = await fixture(t);
+    const before = await h.state.saveGameDB.getDBBytes();
+    await assert.rejects(
+        h.manager.modifyPlayerData({ FirstName: 'Must not persist', PerkPoints: '36' }),
+        /cannot exceed 36/
+    );
+    assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
+});
+
+test('XP level increases are allowed once Talent-system evidence exists', async t => {
+    const h = await fixture(t);
+    await h.manager.modifyPlayerData({ Exp: '13300' });
+    assert.deepEqual(await h.inspect("SELECT DataValue FROM MiscDataDynamic WHERE DataOwner='ExperienceManager' AND DataName='ExperiencePoints'"), [['13300']]);
+});
+
+test('Pre-Talent saves can edit XP within a level but cannot skip levels', async t => {
+    const h = await fixture(t);
+    const db = new h.SQL.Database(await h.state.saveGameDB.getDBBytes());
+    db.run("DELETE FROM PerkDynamic");
+    db.run("UPDATE MiscDataDynamic SET DataValue='0' WHERE DataOwner='Player0' AND DataName='PerkPoints'");
+    h.state.saveGameDB = new (h.load('resources/saveGameDB.ts').SaveGameDB)(db.export());
+    db.close();
+
+    await h.manager.modifyPlayerData({ Exp: '12500' });
+    assert.deepEqual(await h.inspect("SELECT DataValue FROM MiscDataDynamic WHERE DataOwner='ExperienceManager' AND DataName='ExperiencePoints'"), [['12500']]);
+
+    const beforeJump = await h.state.saveGameDB.getDBBytes();
+    await assert.rejects(h.manager.modifyPlayerData({ Exp: '13300' }), /Talents are initialized/);
+    assert.deepEqual(await h.state.saveGameDB.getDBBytes(), beforeJump);
+});
+
+test('XP cannot lower the derived player level and is capped at level 40', async t => {
+    const h = await fixture(t);
+    const before = await h.state.saveGameDB.getDBBytes();
+    await assert.rejects(h.manager.modifyPlayerData({ Exp: '1000' }), /cannot lower the player level/);
+    assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
+    await assert.rejects(h.manager.modifyPlayerData({ Exp: '74001' }), /0 to 74000/);
+    assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
+});
+
+test('Internal LevelUpMult remains read-only', async t => {
+    const h = await fixture(t);
+    const before = await h.state.saveGameDB.getDBBytes();
+    await assert.rejects(h.manager.modifyPlayerData({ Level: '999' }), /safeguards|progression|editable/i);
+    assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
+});
 
 for (const value of ['', '-1', '1.5', 'NaN', 'Infinity', '1e3', ' 20 ', '2147483648', null, 20]) {
     test(`Invalid capacity ${JSON.stringify(value)} prevents every form mutation`, async t => {
@@ -174,23 +219,66 @@ test('SQL failure rolls back prior fields in the same Apply', async t => {
     assert.equal((await h.manager.getPlayerData()).FirstName, 'Test');
 });
 
-for (const action of ['unlockWandHandles', 'lockWandHandles', 'unlockRevelioPages', 'lockRevelioPages']) {
-    test(`${action} fails explicitly without changing any category, loot, or lock`, async t => {
-        const h = await fixture(t);
-        const before = await h.state.saveGameDB.getDBBytes();
-        await assert.rejects(h.manager[action](), /disabled.*not verified/);
-        await assert.rejects(h.state.saveGameDB[action](), /disabled.*not verified/);
-        assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
-        assert.deepEqual(await h.inspect('PRAGMA integrity_check'), [['ok']]);
-    });
-}
+test('Wand Handles unlock uses WandStyle ownership plus matching usage locks only', async t => {
+    const h = await fixture(t);
+    const lootBefore = await h.inspect('SELECT * FROM LootItemsDynamic ORDER BY ItemID');
+    await h.manager.unlockWandHandles();
+    assert.deepEqual(
+        await h.inspect("SELECT ItemState FROM CollectionDynamic WHERE CategoryID='WandStyle' ORDER BY rowid"),
+        [['Obtained'], ['Obtained']]
+    );
+    assert.deepEqual(await h.inspect("SELECT ELockState FROM LocksDynamic WHERE LockID='h01_m01'"), [[0]]);
+    assert.deepEqual(
+        await h.inspect("SELECT ItemState FROM CollectionDynamic WHERE CategoryID='WandHandles'"),
+        [['Obtained']]
+    );
+    assert.deepEqual(await h.inspect('SELECT * FROM LootItemsDynamic ORDER BY ItemID'), lootBefore);
+});
 
-test('UI offers no disabled collection mutations and clearly marks progression read-only', () => {
+test('Wand Handles lock clears WandStyle ownership and matching usage locks only', async t => {
+    const h = await fixture(t);
+    await h.manager.lockWandHandles();
+    assert.deepEqual(
+        await h.inspect("SELECT ItemState FROM CollectionDynamic WHERE CategoryID='WandStyle' ORDER BY rowid"),
+        [['Unknown'], ['Unknown']]
+    );
+    assert.deepEqual(await h.inspect("SELECT * FROM LocksDynamic WHERE LockID='h01_m01'"), []);
+    assert.deepEqual(await h.inspect("SELECT * FROM LocksDynamic WHERE LockID='other-lock'"), [['other-lock', 1]]);
+});
+
+test('Revelio unlock and lock target only LORE_* CollectionDynamic rows', async t => {
+    const h = await fixture(t);
+    const unrelatedBefore = await h.inspect(
+        "SELECT CategoryID,ItemID,ItemState FROM CollectionDynamic WHERE ItemID NOT LIKE 'LORE_%' ORDER BY rowid"
+    );
+
+    await h.manager.unlockRevelioPages();
+    assert.deepEqual(
+        await h.inspect("SELECT ItemID,ItemState FROM CollectionDynamic WHERE ItemID LIKE 'LORE_%' ORDER BY ItemID"),
+        [['LORE_Test_A','Obtained'], ['LORE_Test_B','Obtained']]
+    );
+    assert.deepEqual(
+        await h.inspect("SELECT CategoryID,ItemID,ItemState FROM CollectionDynamic WHERE ItemID NOT LIKE 'LORE_%' ORDER BY rowid"),
+        unrelatedBefore
+    );
+
+    await h.manager.lockRevelioPages();
+    assert.deepEqual(
+        await h.inspect("SELECT ItemID,ItemState FROM CollectionDynamic WHERE ItemID LIKE 'LORE_%' ORDER BY ItemID"),
+        [['LORE_Test_A','Unknown'], ['LORE_Test_B','Unknown']]
+    );
+});
+
+test('UI exposes restored Wand/Revelio actions and guarded progression editing', () => {
     const collections = readFileSync(path.join(__dirname, '../src/client/pages/collectionsPage.vue'), 'utf8');
     const player = parse(readFileSync(path.join(__dirname, '../src/client/pages/playerDetailPage.vue'), 'utf8')).descriptor.template.content;
-    assert.doesNotMatch(collections, /@click=.*(?:WandHandles|RevelioPages)/);
-    assert.match(collections, /Revelio Pages — unavailable/);
-    assert.match(collections, /Wand Handles — unavailable/);
-    assert.match(player, /v-model="playerData.Exp"\s+readonly/);
-    assert.match(player, /v-model="playerData.PerkPoints"\s+readonly/);
+    assert.match(collections, /SaveGameManager\.unlockWandHandles/);
+    assert.match(collections, /SaveGameManager\.lockWandHandles/);
+    assert.match(collections, /SaveGameManager\.unlockRevelioPages/);
+    assert.match(collections, /SaveGameManager\.lockRevelioPages/);
+    assert.doesNotMatch(collections, /Wand Handles — unavailable|Revelio Pages — unavailable/);
+    assert.doesNotMatch(player, /v-model="playerData.Exp"\s+readonly/);
+    assert.doesNotMatch(player, /v-model="playerData.PerkPoints"\s+readonly/);
+    assert.match(player, /v-model="playerData.Exp"[\s\S]*max="74000"/);
+    assert.match(player, /v-model="playerData.PerkPoints"[\s\S]*max="36"/);
 });
