@@ -13,6 +13,7 @@ import {
 const playerData = ref<PlayerData>({} as PlayerData);
 const originalData = ref<PlayerData>({} as PlayerData);
 const progression = ref<ProgressionContext | null>(null);
+const progressionMessage = ref('');
 const advancedTalentPoints = ref(false);
 const ready = ref(false);
 const errorMessage = ref('');
@@ -40,7 +41,9 @@ const lifetimeUnspentLimit = computed(() => {
 const progressionStatus = computed(() => {
   if(!progression.value)
   {
-    return '';
+    return progressionMessage.value
+      ? `Progression editing unavailable: ${ progressionMessage.value }`
+      : '';
   }
   if(!progression.value.talentSystemUnlocked)
   {
@@ -55,10 +58,17 @@ async function refreshData()
   ready.value = false;
   try
   {
-    const [ data, progressionData ] = await Promise.all([
-      SaveGameManager.getPlayerData(),
-      SaveGameManager.getProgressionContext()
-    ]);
+    const data = await SaveGameManager.getPlayerData();
+    let progressionData : ProgressionContext | null = null;
+    try
+    {
+      progressionData = await SaveGameManager.getProgressionContext();
+      progressionMessage.value = '';
+    }
+    catch (error)
+    {
+      progressionMessage.value = error instanceof Error ? error.message : String(error);
+    }
     playerData.value = { ...data };
     originalData.value = { ...data };
     progression.value = progressionData;
