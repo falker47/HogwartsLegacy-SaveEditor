@@ -111,7 +111,9 @@ onBeforeMount(refreshData);
           >
             <v-text-field
               v-model="playerData.Exp"
-              readonly
+              min="0"
+              max="74000"
+              step="1"
               type="number"
               label="Experience"
               variant="underlined"
@@ -122,7 +124,9 @@ onBeforeMount(refreshData);
           >
             <v-text-field
               v-model="playerData.PerkPoints"
-              readonly
+              min="0"
+              max="36"
+              step="1"
               type="number"
               label="Talent Points"
               variant="underlined"
