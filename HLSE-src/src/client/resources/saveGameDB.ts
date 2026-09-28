@@ -3,7 +3,7 @@ import sqlJSWasmURL from 'sql.js/dist/sql-wasm.wasm?url';
 import initSqlJs, { Database } from 'sql.js';
 
 import { GearItem, LockListItem, LockState, PlayerData, PlayerResource } from '../interfaces';
-import { progressionWarning, validatePlayerNumber } from './playerEdits';
+import { ProgressionContext, ProgressionEditOptions, levelFromExperience, validatePlayerNumber, validateProgressionChanges } from './playerEdits';
 
 interface LockItem {
     LockID: string;
@@ -172,7 +172,54 @@ export class SaveGameDB {
         };
     }
 
-    async modifyPlayerData(changes : Partial<PlayerData>) : Promise<void>
+    async getProgressionContext() : Promise<ProgressionContext>
+    {
+        const db = await this.#gameDB;
+        const experienceRows = db.exec(
+            "SELECT DataValue FROM MiscDataDynamic WHERE DataOwner = 'ExperienceManager' AND DataName = 'ExperiencePoints'"
+        );
+        const pointsRows = db.exec(
+            "SELECT DataValue FROM MiscDataDynamic WHERE DataOwner = 'Player0' AND DataName = 'PerkPoints'"
+        );
+        if(!experienceRows[0] || experienceRows[0].values.length !== 1
+            || !pointsRows[0] || pointsRows[0].values.length !== 1)
+        {
+            throw new Error('Progression rows are missing or ambiguous in this save.');
+        }
+
+        const experience = validatePlayerNumber(
+            String(experienceRows[0].values[0][0]), 'Experience', 74000
+        );
+        const unspentTalentPoints = validatePlayerNumber(
+            String(pointsRows[0].values[0][0]), 'Talent Points', 36
+        );
+
+        const spentRows = db.exec('SELECT COUNT(*) FROM PerkDynamic');
+        const spentTalentPoints = Number(spentRows[0]?.values[0]?.[0] ?? 0);
+        if(!Number.isSafeInteger(spentTalentPoints) || spentTalentPoints < 0)
+        {
+            throw new Error('Could not determine learned talent count.');
+        }
+
+        const talentLock = db.exec(
+            "SELECT ELockState FROM LocksDynamic WHERE LockID = 'MenuTab_Talents'"
+        );
+        const talentSystemUnlocked = talentLock[0]?.values.length === 1
+            && Number(talentLock[0].values[0][0]) === 0;
+
+        return {
+            experience,
+            level: levelFromExperience(experience),
+            unspentTalentPoints,
+            spentTalentPoints,
+            talentSystemUnlocked
+        };
+    }
+
+    async modifyPlayerData(
+        changes : Partial<PlayerData>,
+        options : ProgressionEditOptions = {}
+    ) : Promise<void>
     {
         const fields : Record<keyof PlayerData, [string, string]> = {
             FirstName: [ 'Player', 'PlayerFirstName' ],
@@ -184,6 +231,8 @@ export class SaveGameDB {
             BaseInventoryCapacity: [ 'Player0', 'BaseInventoryCapacity' ]
         };
         const db = await this.#gameDB;
+        const progressionContext = await this.getProgressionContext();
+        validateProgressionChanges(changes, progressionContext, options);
         const updates : [string, string, string][] = [];
         for(const key of Object.keys(changes) as (keyof PlayerData)[])
         {
@@ -204,13 +253,13 @@ export class SaveGameDB {
             }
             if(value !== String(rows[0].values[0][0]))
             {
-                if([ 'Exp', 'PerkPoints', 'BaseInventoryCapacity' ].includes(key))
+                if(key === 'Level')
+                {
+                    throw new Error('Internal LevelUpMult editing is not supported; level is derived from Experience.');
+                }
+                if(key === 'BaseInventoryCapacity')
                 {
                     validatePlayerNumber(value, key);
-                }
-                if([ 'Exp', 'PerkPoints', 'Level' ].includes(key))
-                {
-                    throw new Error(progressionWarning);
                 }
                 updates.push([ value, owner, name ]);
             }
