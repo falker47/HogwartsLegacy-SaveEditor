@@ -405,13 +405,13 @@ export class SaveGameDB {
 
     async unlockRevelioPages(): Promise<void> {
         const db = await this.#gameDB;
-        const rows = db.exec("SELECT COUNT(*) FROM CollectionDynamic WHERE ItemID LIKE 'LORE_%'");
+        const rows = db.exec("SELECT COUNT(*) FROM CollectionDynamic WHERE ItemID GLOB 'LORE_*'");
         const count = Number(rows[0]?.values[0]?.[0] ?? 0);
         if(count === 0)
         {
             throw new Error('No Revelio lore rows were found in this save.');
         }
-        db.run("UPDATE CollectionDynamic SET ItemState = 'Obtained' WHERE ItemID LIKE 'LORE_%'");
+        db.run("UPDATE CollectionDynamic SET ItemState = 'Obtained' WHERE ItemID GLOB 'LORE_*'");
     }
 
     async unlockWandHandles(): Promise<void> {
@@ -492,13 +492,13 @@ export class SaveGameDB {
 
     async lockRevelioPages(): Promise<void> {
         const db = await this.#gameDB;
-        const rows = db.exec("SELECT COUNT(*) FROM CollectionDynamic WHERE ItemID LIKE 'LORE_%'");
+        const rows = db.exec("SELECT COUNT(*) FROM CollectionDynamic WHERE ItemID GLOB 'LORE_*'");
         const count = Number(rows[0]?.values[0]?.[0] ?? 0);
         if(count === 0)
         {
             throw new Error('No Revelio lore rows were found in this save.');
         }
-        db.run("UPDATE CollectionDynamic SET ItemState = 'Unknown' WHERE ItemID LIKE 'LORE_%'");
+        db.run("UPDATE CollectionDynamic SET ItemState = 'Unknown' WHERE ItemID GLOB 'LORE_*'");
     }
 
     async lockWandHandles(): Promise<void> {
