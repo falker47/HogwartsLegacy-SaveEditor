@@ -114,22 +114,49 @@
 
       <v-col cols="12" md="6">
         <v-card height="100%">
-          <v-card-title>Revelio Pages — unavailable</v-card-title>
+          <v-card-title>Revelio Pages</v-card-title>
           <v-card-text>
-            Revelio lore entries and other Field Guide pages use different progress state.
-            Page unlock and lock actions are disabled until their effects are verified.
-            This editor does not complete page challenges or grant their XP.
+            Unlock or lock the 147 lore pages stored as <code>LORE_*</code> collection entries.
+            <div class="text-caption text-grey">
+              This changes Revelio lore ownership only; it does not grant challenge XP or alter flying/moth/brazier/statue pages.
+            </div>
           </v-card-text>
+          <v-card-actions class="flex-column ga-2 pa-4">
+            <v-btn block color="primary" variant="tonal" :loading="isWorking"
+              prepend-icon="mdi-lock-open-variant"
+              @click="performAction('Revelio Pages Unlocked', () => SaveGameManager.unlockRevelioPages())">
+              UNLOCK REVELIO PAGES
+            </v-btn>
+            <v-btn block color="error" variant="tonal" :loading="isWorking"
+              prepend-icon="mdi-lock"
+              @click="requestLock('Revelio Pages Locked', () => SaveGameManager.lockRevelioPages())">
+              LOCK REVELIO PAGES
+            </v-btn>
+          </v-card-actions>
         </v-card>
       </v-col>
 
       <v-col cols="12" md="6">
         <v-card height="100%">
-          <v-card-title>Wand Handles — unavailable</v-card-title>
+          <v-card-title>Wand Handles</v-card-title>
           <v-card-text>
-            Unlock and lock actions are disabled until ownership and usage locks can be
-            changed safely. Restoring your backup is the way to undo earlier edits.
+            Unlock or lock wand-handle collection state using <code>WandStyle</code> rows and their matching usage locks.
+            <div class="text-caption text-grey">
+              Lock clears all wand-handle ownership in this save, including handles collected normally.
+            </div>
           </v-card-text>
+          <v-card-actions class="flex-column ga-2 pa-4">
+            <v-btn block color="brown" variant="tonal" :loading="isWorking"
+              prepend-icon="mdi-lock-open-variant"
+              @click="performAction('Wand Handles Unlocked', () => SaveGameManager.unlockWandHandles())">
+              UNLOCK WAND HANDLES
+            </v-btn>
+            <v-btn block color="error" variant="tonal" :loading="isWorking"
+              prepend-icon="mdi-lock"
+              @click="requestLock('Wand Handles Locked', () => SaveGameManager.lockWandHandles())">
+              LOCK WAND HANDLES
+            </v-btn>
+          </v-card-actions>
         </v-card>
       </v-col>
 
