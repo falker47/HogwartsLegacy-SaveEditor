@@ -180,7 +180,7 @@ export class SaveGameDB {
             Level: safeExtract(levelData, '0'),
             PerkPoints: safeExtract(perkData, '0'),
             BaseInventoryCapacity: safeExtract(baseInvCap, '20'),
-            Galleons: safeExtract(galleonsData, '0')
+            Galleons: String(safeExtract(galleonsData, '0'))
         };
     }
 
