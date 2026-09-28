@@ -48,7 +48,7 @@ async function fixture(t) {
             PRIMARY KEY(DataOwner, DataName));
         INSERT INTO MiscDataDynamic VALUES
             ('Player', 'PlayerFirstName', 'Test'), ('Player', 'PlayerLastName', 'Wizard'),
-            ('Player', 'HouseID', 'Ravenclaw'), ('ExperienceManager', 'ExperiencePoints', '1234'),
+            ('Player', 'HouseID', 'Ravenclaw'), ('ExperienceManager', 'ExperiencePoints', '12025'),
             ('ExperienceManager', 'LevelUpMult', '1'), ('Player0', 'PerkPoints', '3'),
             ('Player0', 'BaseInventoryCapacity', '20'), ('Other', 'BaseInventoryCapacity', '7');
         CREATE TABLE UpdateAudit(DataOwner TEXT, DataName TEXT);
@@ -64,7 +64,9 @@ async function fixture(t) {
             ('RevelioPages','Hogwarts','legacy-page','Obtained',123),
             ('Traits','Exploration','other','Obtained',123);
         CREATE TABLE LocksDynamic(LockID TEXT PRIMARY KEY, ELockState INTEGER);
-        INSERT INTO LocksDynamic VALUES ('h01_m01',0), ('other-lock',1);
+        INSERT INTO LocksDynamic VALUES ('h01_m01',0), ('other-lock',1), ('MenuTab_Talents',0);
+        CREATE TABLE PerkDynamic(PerkID TEXT PRIMARY KEY);
+        INSERT INTO PerkDynamic VALUES ('Talent_A'), ('Talent_B'), ('Talent_C'), ('Talent_D');
         CREATE TABLE LootItemsDynamic(ItemID TEXT, Looted INTEGER, ItemRandomWeight INTEGER, ItemAdjustedWeight INTEGER, Variation TEXT);
         INSERT INTO LootItemsDynamic VALUES ('legacy-handle',1,2,3,NULL), ('legacy-page',1,2,3,NULL), ('other',1,2,3,NULL);
     `);
@@ -95,8 +97,9 @@ test('Player page applies only the dirty field, preserves progression and other 
     assert.equal(h.page.playerDataChanged.value, false);
     assert.deepEqual(await h.inspect('SELECT * FROM UpdateAudit'), [['Player', 'PlayerFirstName']]);
     assert.deepEqual(await h.inspect("SELECT DataName, DataValue FROM MiscDataDynamic WHERE DataName IN ('ExperiencePoints','PerkPoints') ORDER BY DataName"),
-        [['ExperiencePoints', '1234'], ['PerkPoints', '3']]);
-    assert.deepEqual(await h.inspect('SELECT * FROM LocksDynamic'), [['h01_m01', 0], ['other-lock', 1]]);
+        [['ExperiencePoints', '12025'], ['PerkPoints', '3']]);
+    assert.deepEqual(await h.inspect("SELECT * FROM LocksDynamic WHERE LockID <> 'MenuTab_Talents'"),
+        [['h01_m01', 0], ['other-lock', 1]]);
     h.page.playerData.value.LastName = 'Discard this';
     await h.page.resetPlayerData();
     assert.equal(h.page.playerData.value.LastName, 'Wizard');
@@ -116,20 +119,81 @@ test('An unchanged full form and a name changed back produce no UPDATEs', async 
     assert.deepEqual(await h.inspect('SELECT * FROM UpdateAudit'), []);
 });
 
-for (const field of ['Exp', 'PerkPoints', 'Level']) {
-    test(`Progression ${field} change is refused atomically through manager and page`, async t => {
-        const h = await fixture(t);
-        const before = await h.state.saveGameDB.getDBBytes();
-        await assert.rejects(h.manager.modifyPlayerData({ FirstName: 'Must not persist', [field]: '999' }), /read-only/);
-        assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
-        await h.page.refreshData();
-        h.page.playerData.value[field] = '999';
-        await h.page.savePlayerData();
-        assert.match(h.page.errorMessage.value, /read-only/);
-        assert.equal(h.page.playerDataChanged.value, true);
-        assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
+test('Progression context derives level, learned talents, points and unlock gate', async t => {
+    const h = await fixture(t);
+    assert.deepEqual(await h.manager.getProgressionContext(), {
+        experience: 12025,
+        level: 16,
+        unspentTalentPoints: 3,
+        spentTalentPoints: 4,
+        talentSystemUnlocked: true
     });
-}
+});
+
+test('Experience can be increased explicitly without touching Talent Points', async t => {
+    const h = await fixture(t);
+    await h.manager.modifyPlayerData({ Exp: '13300' });
+    assert.deepEqual(await h.inspect("SELECT DataValue FROM MiscDataDynamic WHERE DataOwner='ExperienceManager' AND DataName='ExperiencePoints'"), [['13300']]);
+    assert.deepEqual(await h.inspect("SELECT DataValue FROM MiscDataDynamic WHERE DataOwner='Player0' AND DataName='PerkPoints'"), [['3']]);
+    assert.deepEqual(await h.inspect('SELECT * FROM UpdateAudit'), [['ExperienceManager', 'ExperiencePoints']]);
+});
+
+test('Experience decrease is rejected atomically', async t => {
+    const h = await fixture(t);
+    const before = await h.state.saveGameDB.getDBBytes();
+    await assert.rejects(
+        h.manager.modifyPlayerData({ FirstName: 'Must not persist', Exp: '10825' }),
+        /only be increased/
+    );
+    assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
+});
+
+test('Safe Talent Points obey resulting level and learned-talent balance', async t => {
+    const h = await fixture(t);
+    // Level 16 earns 12 lifetime points; 4 are learned, so 8 can remain unspent.
+    await h.manager.modifyPlayerData({ PerkPoints: '8' });
+    assert.deepEqual(await h.inspect("SELECT DataValue FROM MiscDataDynamic WHERE DataOwner='Player0' AND DataName='PerkPoints'"), [['8']]);
+
+    const before = await h.state.saveGameDB.getDBBytes();
+    await assert.rejects(h.manager.modifyPlayerData({ PerkPoints: '9' }), /Safe Talent Points limit/);
+    assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
+});
+
+test('Advanced Talent Points may use future points early but never exceed lifetime pool', async t => {
+    const h = await fixture(t);
+    await h.manager.modifyPlayerData({ PerkPoints: '20' }, { advancedTalentPoints: true });
+    assert.deepEqual(await h.inspect("SELECT DataValue FROM MiscDataDynamic WHERE DataOwner='Player0' AND DataName='PerkPoints'"), [['20']]);
+
+    const before = await h.state.saveGameDB.getDBBytes();
+    await assert.rejects(
+        h.manager.modifyPlayerData({ PerkPoints: '33' }, { advancedTalentPoints: true }),
+        /36-point lifetime pool/
+    );
+    assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
+});
+
+test('Progression editing is blocked before the in-game talent menu unlock', async t => {
+    const h = await fixture(t);
+    const db = new h.SQL.Database(await h.state.saveGameDB.getDBBytes());
+    db.run("DELETE FROM LocksDynamic WHERE LockID='MenuTab_Talents'");
+    h.state.saveGameDB = new (h.load('resources/saveGameDB.ts').SaveGameDB)(db.export());
+    db.close();
+    const before = await h.state.saveGameDB.getDBBytes();
+
+    await assert.rejects(h.manager.modifyPlayerData({ Exp: '13300' }), /Talent menu is unlocked/);
+    await assert.rejects(
+        h.manager.modifyPlayerData({ PerkPoints: '4' }, { advancedTalentPoints: true }),
+        /Talent menu is unlocked/
+    );
+    assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
+});
+
+test('Internal LevelUpMult remains non-editable', async t => {
+    const h = await fixture(t);
+    const before = await h.state.saveGameDB.getDBBytes();
+    await assert.rejects(h.manager.modifyPlayerData({ Level: '999' }), /LevelUpMult editing is not supported/);
+    assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
+});
 
 for (const value of ['', '-1', '1.5', 'NaN', 'Infinity', '1e3', ' 20 ', '2147483648', null, 20]) {
     test(`Invalid capacity ${JSON.stringify(value)} prevents every form mutation`, async t => {
@@ -185,12 +249,13 @@ for (const action of ['unlockWandHandles', 'lockWandHandles', 'unlockRevelioPage
     });
 }
 
-test('UI offers no disabled collection mutations and clearly marks progression read-only', () => {
+test('UI offers no disabled collection mutations and exposes guarded progression controls', () => {
     const collections = readFileSync(path.join(__dirname, '../src/client/pages/collectionsPage.vue'), 'utf8');
     const player = parse(readFileSync(path.join(__dirname, '../src/client/pages/playerDetailPage.vue'), 'utf8')).descriptor.template.content;
     assert.doesNotMatch(collections, /@click=.*(?:WandHandles|RevelioPages)/);
     assert.match(collections, /Revelio Pages — unavailable/);
     assert.match(collections, /Wand Handles — unavailable/);
-    assert.match(player, /v-model="playerData.Exp"\s+readonly/);
-    assert.match(player, /v-model="playerData.PerkPoints"\s+readonly/);
+    assert.match(player, /v-model="playerData.Exp"[\s\S]*:readonly="!progressionUnlocked"/);
+    assert.match(player, /v-model="playerData.PerkPoints"[\s\S]*:readonly="!progressionUnlocked"/);
+    assert.match(player, /Advanced Talent Points/);
 });
