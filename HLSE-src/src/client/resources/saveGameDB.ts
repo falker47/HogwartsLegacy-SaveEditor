@@ -326,7 +326,42 @@ export class SaveGameDB {
     }
 
     async unlockWandHandles(): Promise<void> {
-        throw new Error('Wand Handles editing is disabled: safe unlock and revert semantics are not verified.');
+        const db = await this.#gameDB;
+        const rows = db.exec(
+            "SELECT DISTINCT ItemID FROM CollectionDynamic WHERE CategoryID = 'WandStyle' AND ItemID IS NOT NULL"
+        );
+        const itemIDs = (rows[0]?.values ?? []).map((row) => String(row[0]));
+        if(itemIDs.length === 0)
+        {
+            throw new Error('No WandStyle collection rows were found in this save; no changes applied.');
+        }
+        if(itemIDs.some((itemID) => !/^h\d+_m\d+$/i.test(itemID)))
+        {
+            throw new Error('Unexpected WandStyle identifiers found; no changes applied.');
+        }
+
+        db.run('BEGIN TRANSACTION');
+        try
+        {
+            db.run(
+                "UPDATE CollectionDynamic SET ItemState = 'Obtained' "
+                + "WHERE CategoryID = 'WandStyle' AND ItemState <> 'Obtained'"
+            );
+            for(const itemID of itemIDs)
+            {
+                db.run(
+                    'INSERT OR IGNORE INTO LocksDynamic (LockID, ELockState) VALUES (?, 0)',
+                    [ itemID ]
+                );
+                db.run('UPDATE LocksDynamic SET ELockState = 0 WHERE LockID = ?', [ itemID ]);
+            }
+            db.run('COMMIT');
+        }
+        catch (error)
+        {
+            db.run('ROLLBACK');
+            throw error;
+        }
     }
 
     async unlockTraits(): Promise<void> {
