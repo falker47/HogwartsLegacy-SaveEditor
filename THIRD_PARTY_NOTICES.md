@@ -4,16 +4,21 @@ This file documents provenance and license boundaries for external components us
 
 ## 1. hlsaves / hlsavetool
 
-**Upstream:** https://github.com/gx570s/hlsavetool  
-**Purpose:** compression/decompression of Hogwarts Legacy save databases  
-**Pinned release:** v2.0.1 (2026-04-30)  
-**Pinned release archive SHA-256:** `a5733229c767f451d0b2612df88af2823e84e769b482d9b0eebe7f6fc09472ed`  
-**Upstream license:** MIT  
-**Upstream copyright notice:** Copyright (c) 2024 Katt
+- **Upstream:** https://github.com/gx570s/hlsavetool
+- **Parent project:** https://github.com/topche-katt/hlsavetool
+- **Purpose:** compression/decompression of Hogwarts Legacy save databases
+- **Baseline:** v2.0.1, with the minimal local HL-02A DB2 tail-parsing patch
+- **Vendored package:** 2.0.1-hl02a.1
+- **ZIP SHA-256:** `eeedcc913d1ea916e9edc6b599002bac7823a9989050b79851b5f9f02c0b7a75`
+- **EXE SHA-256:** `bdf28ae18dc5ecf049af37ca863085851f2cd0f5b22895f9637c5820c8d0f70e`
+- **Upstream license:** MIT
+- **Upstream copyright notice:** Copyright (c) 2024 Katt
 
-The executable is not committed to this repository. `scripts/fetch_hlsaves.ps1` downloads the pinned upstream GitHub release archive, verifies the archive SHA-256, locates `hlsaves.exe`, and installs it into `assets/` for local use or packaging.
+The executable is stored inside the reproducible ZIP under `third_party/hlsavetool/`. The standalone `assets/hlsaves.exe` remains ignored. `scripts/fetch_hlsaves.ps1` installs from this local archive without network access, verifies the archive and extracted executable, and verifies the final copied executable.
 
-The upstream MIT notice is preserved at `third_party/hlsavetool-LICENSE.txt` and is copied into release packages.
+The public [patch and provenance](third_party/hlsavetool/PROVENANCE.md) record the upstream baseline, patch identity, build toolchain and validation results. The converter remains third-party code credited to Katt.
+
+The canonical MIT notice stays at `third_party/hlsavetool-LICENSE.txt` and is copied into release packages together with the patch/provenance. The Oodle DLL is separate and is not included.
 
 ## 2. HLSGE / Hogwarts Legacy Save Game Editor
 
