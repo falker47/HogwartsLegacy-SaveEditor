@@ -59,8 +59,10 @@ async function fixture(t) {
         INSERT INTO CollectionDynamic VALUES
             ('WandStyle','Exploration','h01_m01','Obtained',123),
             ('WandStyle','Exploration','h01_m01','Unknown',0),
+            ('WandStyle','Exploration','h02_m02','Unknown',0),
             ('WandHandles','Exploration','legacy-handle','Obtained',123),
-            ('Exploration','Hogwarts','lore-entry','Obtained',123),
+            ('Exploration','Hogwarts','LORE_LibraryAnnex_DivinationObject','NotObtained',123),
+            ('Exploration','Hogwarts','unrelated-lore-entry','NotObtained',456),
             ('RevelioPages','Hogwarts','legacy-page','Obtained',123),
             ('Traits','Exploration','other','Obtained',123);
         CREATE TABLE LocksDynamic(LockID TEXT PRIMARY KEY, ELockState INTEGER);
@@ -251,7 +253,7 @@ test('SQL failure rolls back prior fields in the same Apply', async t => {
     assert.equal((await h.manager.getPlayerData()).FirstName, 'Test');
 });
 
-for (const action of ['unlockWandHandles', 'lockWandHandles', 'unlockRevelioPages', 'lockRevelioPages']) {
+for (const action of ['lockWandHandles', 'lockRevelioPages']) {
     test(`${action} fails explicitly without changing any category, loot, or lock`, async t => {
         const h = await fixture(t);
         const before = await h.state.saveGameDB.getDBBytes();
@@ -262,12 +264,82 @@ for (const action of ['unlockWandHandles', 'lockWandHandles', 'unlockRevelioPage
     });
 }
 
+test('Revelio unlock changes only whitelisted Revelio rows', async t => {
+    const h = await fixture(t);
+    const lootBefore = await h.inspect('SELECT * FROM LootItemsDynamic ORDER BY ItemID');
+    const locksBefore = await h.inspect('SELECT * FROM LocksDynamic ORDER BY LockID');
+
+    await h.manager.unlockRevelioPages();
+
+    assert.deepEqual(await h.inspect(
+        "SELECT ItemID,ItemState,UpdateTime FROM CollectionDynamic WHERE ItemID IN ('LORE_LibraryAnnex_DivinationObject','unrelated-lore-entry','legacy-page') ORDER BY ItemID"
+    ), [
+        ['LORE_LibraryAnnex_DivinationObject', 'Obtained', 123],
+        ['legacy-page', 'Obtained', 123],
+        ['unrelated-lore-entry', 'NotObtained', 456]
+    ]);
+    assert.deepEqual(await h.inspect('SELECT * FROM LootItemsDynamic ORDER BY ItemID'), lootBefore);
+    assert.deepEqual(await h.inspect('SELECT * FROM LocksDynamic ORDER BY LockID'), locksBefore);
+});
+
+test('Revelio unlock refuses saves without known Revelio rows', async t => {
+    const h = await fixture(t);
+    const db = new h.SQL.Database(await h.state.saveGameDB.getDBBytes());
+    db.run("DELETE FROM CollectionDynamic WHERE ItemID='LORE_LibraryAnnex_DivinationObject'");
+    h.state.saveGameDB = new (h.load('resources/saveGameDB.ts').SaveGameDB)(db.export());
+    db.close();
+    const before = await h.state.saveGameDB.getDBBytes();
+
+    await assert.rejects(h.manager.unlockRevelioPages(), /No known Revelio Page/);
+    assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
+});
+
+test('Wand Handles unlock derives exact WandStyle IDs and matching usage locks', async t => {
+    const h = await fixture(t);
+    const lootBefore = await h.inspect('SELECT * FROM LootItemsDynamic ORDER BY ItemID');
+
+    await h.manager.unlockWandHandles();
+
+    assert.deepEqual(await h.inspect(
+        "SELECT ItemID,ItemState FROM CollectionDynamic WHERE CategoryID='WandStyle' ORDER BY ItemID,ItemState"
+    ), [
+        ['h01_m01', 'Obtained'],
+        ['h01_m01', 'Obtained'],
+        ['h02_m02', 'Obtained']
+    ]);
+    assert.deepEqual(await h.inspect(
+        "SELECT LockID,ELockState FROM LocksDynamic WHERE LockID IN ('h01_m01','h02_m02') ORDER BY LockID"
+    ), [
+        ['h01_m01', 0],
+        ['h02_m02', 0]
+    ]);
+    assert.deepEqual(await h.inspect('SELECT * FROM LootItemsDynamic ORDER BY ItemID'), lootBefore);
+    assert.deepEqual(await h.inspect(
+        "SELECT LockID,ELockState FROM LocksDynamic WHERE LockID='other-lock'"
+    ), [['other-lock', 1]]);
+});
+
+test('Wand Handles unlock rejects unexpected identifiers atomically', async t => {
+    const h = await fixture(t);
+    const db = new h.SQL.Database(await h.state.saveGameDB.getDBBytes());
+    db.run("INSERT INTO CollectionDynamic VALUES ('WandStyle','Exploration','unexpected-id','Unknown',0)");
+    h.state.saveGameDB = new (h.load('resources/saveGameDB.ts').SaveGameDB)(db.export());
+    db.close();
+    const before = await h.state.saveGameDB.getDBBytes();
+
+    await assert.rejects(h.manager.unlockWandHandles(), /Unexpected WandStyle identifiers/);
+    assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
+});
+
 test('UI offers no disabled collection mutations and exposes guarded progression controls', () => {
     const collections = readFileSync(path.join(__dirname, '../src/client/pages/collectionsPage.vue'), 'utf8');
     const player = parse(readFileSync(path.join(__dirname, '../src/client/pages/playerDetailPage.vue'), 'utf8')).descriptor.template.content;
-    assert.doesNotMatch(collections, /@click=.*(?:WandHandles|RevelioPages)/);
-    assert.match(collections, /Revelio Pages — unavailable/);
-    assert.match(collections, /Wand Handles — unavailable/);
+    assert.match(collections, /UNLOCK REVELIO PAGES/);
+    assert.match(collections, /SaveGameManager\.unlockRevelioPages/);
+    assert.doesNotMatch(collections, /SaveGameManager\.lockRevelioPages/);
+    assert.match(collections, /UNLOCK WAND HANDLES/);
+    assert.match(collections, /SaveGameManager\.unlockWandHandles/);
+    assert.doesNotMatch(collections, /SaveGameManager\.lockWandHandles/);
     assert.match(player, /v-model="playerData.Exp"[\s\S]*:readonly="!progressionUnlocked"/);
     assert.match(player, /v-model="playerData.PerkPoints"[\s\S]*:readonly="!progressionUnlocked"/);
     assert.match(player, /Advanced Talent Points/);
