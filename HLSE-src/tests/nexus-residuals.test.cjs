@@ -164,7 +164,7 @@ test('Pre-Talent saves can edit XP within a level but cannot skip levels', async
     assert.deepEqual(await h.inspect("SELECT DataValue FROM MiscDataDynamic WHERE DataOwner='ExperienceManager' AND DataName='ExperiencePoints'"), [['12500']]);
 
     const beforeJump = await h.state.saveGameDB.getDBBytes();
-    await assert.rejects(h.manager.modifyPlayerData({ Exp: '13300' }), /Talents are initialized/);
+    await assert.rejects(h.manager.modifyPlayerData({ Exp: '13300' }), /at least one learned talent/);
     assert.deepEqual(await h.state.saveGameDB.getDBBytes(), beforeJump);
 });
 
@@ -284,22 +284,22 @@ test('Wand Handles lock clears WandStyle ownership and matching usage locks only
 test('Revelio unlock and lock target only LORE_* CollectionDynamic rows', async t => {
     const h = await fixture(t);
     const unrelatedBefore = await h.inspect(
-        "SELECT CategoryID,ItemID,ItemState FROM CollectionDynamic WHERE ItemID NOT LIKE 'LORE_%' ORDER BY rowid"
+        "SELECT CategoryID,ItemID,ItemState FROM CollectionDynamic WHERE ItemID NOT GLOB 'LORE_*' ORDER BY rowid"
     );
 
     await h.manager.unlockRevelioPages();
     assert.deepEqual(
-        await h.inspect("SELECT ItemID,ItemState FROM CollectionDynamic WHERE ItemID LIKE 'LORE_%' ORDER BY ItemID"),
+        await h.inspect("SELECT ItemID,ItemState FROM CollectionDynamic WHERE ItemID GLOB 'LORE_*' ORDER BY ItemID"),
         [['LORE_Test_A','Obtained'], ['LORE_Test_B','Obtained']]
     );
     assert.deepEqual(
-        await h.inspect("SELECT CategoryID,ItemID,ItemState FROM CollectionDynamic WHERE ItemID NOT LIKE 'LORE_%' ORDER BY rowid"),
+        await h.inspect("SELECT CategoryID,ItemID,ItemState FROM CollectionDynamic WHERE ItemID NOT GLOB 'LORE_*' ORDER BY rowid"),
         unrelatedBefore
     );
 
     await h.manager.lockRevelioPages();
     assert.deepEqual(
-        await h.inspect("SELECT ItemID,ItemState FROM CollectionDynamic WHERE ItemID LIKE 'LORE_%' ORDER BY ItemID"),
+        await h.inspect("SELECT ItemID,ItemState FROM CollectionDynamic WHERE ItemID GLOB 'LORE_*' ORDER BY ItemID"),
         [['LORE_Test_A','Unknown'], ['LORE_Test_B','Unknown']]
     );
 });
