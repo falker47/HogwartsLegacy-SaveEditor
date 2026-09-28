@@ -83,7 +83,7 @@ export class SaveGameDB {
         const db = await this.#gameDB;
         const inventoryList = db.exec(`SELECT * FROM 'InventoryDynamic'`
             + ` WHERE CharacterID = 'Player0' AND`
-            + ` HolderID = 'ResourceInventory' OR HolderID = 'HealthPotionStorage'`
+            + ` (HolderID = 'ResourceInventory' OR HolderID = 'HealthPotionStorage')`
             + ` ORDER BY HolderID, SlotNumber`);
         return this.#mapSqlResults<PlayerResource>(inventoryList[0], ['SlotNumber', 'ItemID', 'Count', 'HolderID']);
     }
@@ -96,7 +96,8 @@ export class SaveGameDB {
             + ` SET Count = $count`
             + ` WHERE ItemID = $itemID`
             + ` AND HolderID = $holderID`
-            + ` AND SlotNumber = $slotNumber;`,
+            + ` AND SlotNumber = $slotNumber`
+            + ` AND CharacterID = 'Player0';`,
             {
                 $count: playerResource.Count,
                 $itemID: playerResource.ItemID,
@@ -110,9 +111,9 @@ export class SaveGameDB {
         const db = await this.#gameDB;
         const inventoryList = db.exec(`SELECT * FROM 'InventoryDynamic'`
             + ` WHERE CharacterID = 'Player0' AND`
-            + ` HolderID = 'SanctuaryWheel' AND`
+            + ` (HolderID = 'SanctuaryWheel' OR HolderID = 'HealthPotionStorage') AND`
             + ` ItemID IS NOT NULL`
-            + ` ORDER BY SlotNumber`);
+            + ` ORDER BY HolderID, SlotNumber`);
         return this.#mapSqlResults<PlayerResource>(inventoryList[0], ['SlotNumber', 'ItemID', 'Count', 'HolderID']);
     }
 
@@ -166,6 +167,10 @@ export class SaveGameDB {
         const levelData = db.exec(`SELECT DataValue FROM MiscDataDynamic WHERE DataOwner = 'ExperienceManager' AND DataName = 'LevelUpMult'`);
         const perkData = db.exec(`SELECT DataValue FROM MiscDataDynamic WHERE DataOwner = 'Player0' AND DataName = 'PerkPoints'`);
         const baseInvCap = db.exec(`SELECT DataValue FROM MiscDataDynamic WHERE DataOwner = 'Player0' AND DataName = 'BaseInventoryCapacity'`);
+        const galleonsData = db.exec(`
+            SELECT Count FROM InventoryDynamic
+            WHERE CharacterID = 'Player0' AND HolderID = 'ResourceInventory' AND ItemID = 'Knuts'
+        `);
 
         return {
             FirstName: safeExtract(firstNameData),
@@ -174,13 +179,14 @@ export class SaveGameDB {
             Exp: safeExtract(expData, '0'),
             Level: safeExtract(levelData, '0'),
             PerkPoints: safeExtract(perkData, '0'),
-            BaseInventoryCapacity: safeExtract(baseInvCap, '20')
+            BaseInventoryCapacity: safeExtract(baseInvCap, '20'),
+            Galleons: safeExtract(galleonsData, '0')
         };
     }
 
     async modifyPlayerData(changes : Partial<PlayerData>) : Promise<void>
     {
-        const fields : Record<keyof PlayerData, [string, string]> = {
+        const fields : Partial<Record<keyof PlayerData, [string, string]>> = {
             FirstName: [ 'Player', 'PlayerFirstName' ],
             LastName: [ 'Player', 'PlayerLastName' ],
             House: [ 'Player', 'HouseID' ],
@@ -191,13 +197,36 @@ export class SaveGameDB {
         };
         const db = await this.#gameDB;
         const updates : [string, string, string][] = [];
+        const inventoryUpdates : [string][] = [];
         for(const key of Object.keys(changes) as (keyof PlayerData)[])
         {
+            if(key === 'Galleons')
+            {
+                const value = changes[key];
+                if(typeof value !== 'string')
+                {
+                    throw new Error('Galleons must be text.');
+                }
+                validatePlayerNumber(value, 'Galleons');
+                const rows = db.exec(`
+                    SELECT Count FROM InventoryDynamic
+                    WHERE CharacterID = 'Player0' AND HolderID = 'ResourceInventory' AND ItemID = 'Knuts'
+                `);
+                if(!rows[0] || rows[0].values.length !== 1)
+                {
+                    throw new Error('Galleons are missing or ambiguous in this save; no changes applied.');
+                }
+                if(value !== String(rows[0].values[0][0]))
+                {
+                    inventoryUpdates.push([ value ]);
+                }
+                continue;
+            }
             if(!Object.prototype.hasOwnProperty.call(fields, key))
             {
                 throw new Error('Unknown Player field.');
             }
-            const [ owner, name ] = fields[key];
+            const [ owner, name ] = fields[key]!;
             const value = changes[key];
             if(typeof value !== 'string')
             {
@@ -269,6 +298,13 @@ export class SaveGameDB {
             for(const values of updates)
             {
                 db.run('UPDATE MiscDataDynamic SET DataValue = ? WHERE DataOwner = ? AND DataName = ?', values);
+            }
+            for(const [ value ] of inventoryUpdates)
+            {
+                db.run(`
+                    UPDATE InventoryDynamic SET Count = ?
+                    WHERE CharacterID = 'Player0' AND HolderID = 'ResourceInventory' AND ItemID = 'Knuts'
+                `, [ value ]);
             }
             db.run('COMMIT');
         }
