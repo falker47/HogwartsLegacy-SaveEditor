@@ -67,6 +67,14 @@ async function fixture(t) {
             ('Traits','Exploration','other','Obtained',123);
         CREATE TABLE PerkDynamic(PerkID TEXT PRIMARY KEY);
         INSERT INTO PerkDynamic VALUES ('perk-a');
+        CREATE TABLE InventoryDynamic(
+            CharacterID TEXT, HolderID TEXT, SlotNumber INTEGER, ItemID TEXT, Count INTEGER
+        );
+        INSERT INTO InventoryDynamic VALUES
+            ('Player0','ResourceInventory',0,'Knuts',1234),
+            ('Player0','HealthPotionStorage',0,'WiggenweldPotion',7),
+            ('Player0','SanctuaryWheel',1,'MaximaPotion',2),
+            ('Other','HealthPotionStorage',0,'WiggenweldPotion',99);
         CREATE TABLE LocksDynamic(LockID TEXT PRIMARY KEY, ELockState INTEGER);
         INSERT INTO LocksDynamic VALUES ('h01_m01',0), ('other-lock',1);
         CREATE TABLE LootItemsDynamic(ItemID TEXT, Looted INTEGER, ItemRandomWeight INTEGER, ItemAdjustedWeight INTEGER, Variation TEXT);
@@ -184,6 +192,33 @@ for (const value of ['', '-1', '1.5', 'NaN', 'Infinity', '1e3', ' 20 ', '2147483
         assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
     });
 }
+
+test('Galleons are explicit, owner-scoped and independently editable', async t => {
+    const h = await fixture(t);
+    await h.page.refreshData();
+    assert.equal(h.page.playerData.value.Galleons, '1234');
+    await h.manager.modifyPlayerData({ Galleons: '4321' });
+    assert.deepEqual(
+        await h.inspect("SELECT Count FROM InventoryDynamic WHERE CharacterID='Player0' AND HolderID='ResourceInventory' AND ItemID='Knuts'"),
+        [[4321]]
+    );
+});
+
+test('Combat resources include HealthPotionStorage and SanctuaryWheel for Player0 only', async t => {
+    const h = await fixture(t);
+    const resources = await h.manager.getPlayerCombatResourceInventory();
+    assert.deepEqual(
+        resources.map(item => [item.HolderID, item.ItemID, item.Count]),
+        [['HealthPotionStorage','WiggenweldPotion',7], ['SanctuaryWheel','MaximaPotion',2]]
+    );
+});
+
+test('Resource inventory scopes HealthPotionStorage to Player0', async t => {
+    const h = await fixture(t);
+    const resources = await h.manager.getPlayerResourceInventory();
+    assert.equal(resources.filter(item => item.ItemID === 'WiggenweldPotion').length, 1);
+    assert.equal(resources.find(item => item.ItemID === 'WiggenweldPotion').Count, 7);
+});
 
 test('Capacity accepts integer storage boundaries', async t => {
     const h = await fixture(t);
