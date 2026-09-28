@@ -1,0 +1,41 @@
+name: Materialize integrated editor
+
+on:
+  push:
+    branches:
+      - test/nexus-functional-completion
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: test/nexus-functional-completion
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: HLSE-src/package-lock.json
+      - name: Install editor dependencies
+        working-directory: HLSE-src
+        run: npm ci
+      - name: Build integrated editor
+        working-directory: HLSE-src
+        run: npm run build
+      - name: Materialize tracked embedded HTML
+        run: cp HLSE-src/dist/client/index.html assets/HLSGE.html
+      - name: Commit generated editor if changed
+        run: |
+          if git diff --quiet -- assets/HLSGE.html; then
+            echo "Embedded editor already matches the build."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/HLSGE.html
+          git commit -m "build: materialize integrated editor"
+          git push origin HEAD:test/nexus-functional-completion
