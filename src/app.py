@@ -35,6 +35,7 @@ from .config import (
 )
 from .editor import launch_editor_process
 from .utils import format_file_size, parse_save_filename
+from .save_paths import WGS_LIMITATION, find_hogwarts_wgs, require_loose_save_path
 
 
 # Choose base class based on drag-drop availability
@@ -102,12 +103,7 @@ class App(BaseWindow):
 
         # Directory detection logic
         if self.config.get("save_directory") and Path(self.config["save_directory"]).exists():
-            self.save_directory = Path(self.config["save_directory"])
-            self.backup_dir = self.save_directory / "Backups"
-            self.backup_dir.mkdir(exist_ok=True)
-            self.path_label.configure(text=f".../{self.save_directory.name}")
-            self._log(f"📁 Loaded directory from config: {self.save_directory}")
-            self._refresh_save_list()
+            self._set_save_directory(Path(self.config["save_directory"]), "Saved folder")
         elif self.config.get("auto_detect_saves", True):
             self._detect_save_directory()
         else:
@@ -502,12 +498,36 @@ class App(BaseWindow):
             # Widget might be destroyed
             pass
 
+    def _set_save_directory(self, directory: Path, source: str) -> bool:
+        """Validate before making backups or enabling a folder for write-back."""
+        try:
+            require_loose_save_path(directory)
+            require_loose_save_path(directory / "Backups")
+        except (ValueError, OSError) as exc:
+            self._log(f"⚠️ {exc}")
+            self.save_directory = None
+            self.backup_dir = None
+            self._refresh_save_list()
+            self.path_label.configure(text="WGS unsupported — use Browse")
+            return False
+        self.save_directory = directory
+        self.backup_dir = directory / "Backups"
+        self.backup_dir.mkdir(exist_ok=True)
+        self.path_label.configure(text=f"{source}: .../{directory.name}")
+        self._log(f"📁 {source}: ordinary .sav folder selected.")
+        self._refresh_save_list()
+        return True
+
     def _detect_save_directory(self) -> None:
         """Auto-detect the Hogwarts Legacy save directory."""
-        base = Path(os.environ.get("LOCALAPPDATA", "")) / "Hogwarts Legacy" / "Saved" / "SaveGames"
-        if not base.exists():
-            self._log("⚠️ Save dir not found. Use Browse.")
-            self.path_label.configure(text="Not found")
+        local_app_data = os.environ.get("LOCALAPPDATA", "")
+        wgs = find_hogwarts_wgs(local_app_data)
+        if wgs:
+            self._log(f"ℹ️ Game Pass / Microsoft Store WGS area detected. {WGS_LIMITATION}")
+        base = Path(local_app_data) / "Hogwarts Legacy" / "Saved" / "SaveGames"
+        if not local_app_data or not base.exists():
+            self._log("⚠️ Steam/Epic save dir not found. Use Browse for an ordinary .sav folder.")
+            self.path_label.configure(text="WGS unsupported" if wgs else "Not found")
             return
 
         folders = [d for d in base.iterdir() if d.is_dir() and d.name.isdigit()]
@@ -517,15 +537,7 @@ class App(BaseWindow):
             return
 
         folders.sort(key=lambda x: x.stat().st_mtime, reverse=True)
-        self.save_directory = folders[0]
-
-        # Create backup dir inside save directory
-        self.backup_dir = self.save_directory / "Backups"
-        self.backup_dir.mkdir(exist_ok=True)
-
-        self.path_label.configure(text=f".../{folders[0].name}")
-        self._log("✅ Found save folder!")
-        self._refresh_save_list()
+        self._set_save_directory(folders[0], "Steam/Epic")
 
     def _browse_save_directory(self) -> None:
         """Browse for save directory manually."""
@@ -535,17 +547,13 @@ class App(BaseWindow):
 
         d = filedialog.askdirectory(title="Select Save Directory", initialdir=initial)
         if d:
-            self.save_directory = Path(d)
-            self.backup_dir = self.save_directory / "Backups"
-            self.backup_dir.mkdir(exist_ok=True)
-            self.path_label.configure(text=f".../{self.save_directory.name}")
-            self._log("📁 Directory set.")
+            if not self._set_save_directory(Path(d), "Browse"):
+                messagebox.showwarning("Unsupported save folder", WGS_LIMITATION)
+                return
 
             # Save to config
             self.config["save_directory"] = str(self.save_directory)
             self._save_config()
-
-            self._refresh_save_list()
 
     def _refresh_save_list(self) -> None:
         """Refresh the list of save files (thread-safe)."""
@@ -569,6 +577,11 @@ class App(BaseWindow):
                 text_color="gray").pack(pady=20)
             return
 
+        try:
+            require_loose_save_path(self.save_directory)
+        except (ValueError, OSError) as exc:
+            self._log(f"⚠️ {exc}")
+            return
         saves = [f for f in self.save_directory.glob("*.sav") if f.is_file()]
         if not saves:
             ctk.CTkLabel(self.save_list_frame, text="No saves found",
@@ -637,6 +650,15 @@ class App(BaseWindow):
 
         if not self.current_save_file:
             messagebox.showwarning("No File", "Please select a save file first!")
+            return
+
+        try:
+            require_loose_save_path(self.current_save_file)
+            require_loose_save_path(self.backup_dir)
+            require_loose_save_path(self.temp_dir)
+        except (ValueError, OSError) as exc:
+            self._log(f"⚠️ {exc}")
+            messagebox.showwarning("Unsupported save folder", str(exc))
             return
 
         if not self.hlsaves_exe.exists():

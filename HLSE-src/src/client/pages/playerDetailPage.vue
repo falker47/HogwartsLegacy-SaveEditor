@@ -1,47 +1,56 @@
 <script setup lang="ts">
-import { ref, onBeforeMount, watch, reactive, WatchStopHandle } from 'vue';
-  import SaveGameManager from '../managers/saveGame';
-  import { PlayerData } from '../interfaces';
+import { ref, onBeforeMount, computed } from 'vue';
+import SaveGameManager from '../managers/saveGame';
+import { PlayerData } from '../interfaces';
+import { playerChanges, progressionWarning } from '../resources/playerEdits';
 
-  const playerData = ref<PlayerData>({} as PlayerData);
-  const playerDataChanged = ref(false);
+const playerData = ref<PlayerData>({} as PlayerData);
+const originalData = ref<PlayerData>({} as PlayerData);
+const ready = ref(false);
+const errorMessage = ref('');
+const playerDataChanged = computed(() => ready.value
+  && Object.keys(playerChanges(playerData.value, originalData.value)).length > 0);
 
-  let changeWatchStop : WatchStopHandle;
-
-  function setupPlayerDataChangeWatch()
+async function refreshData()
+{
+  ready.value = false;
+  try
   {
-    if(changeWatchStop)
-    {
-      changeWatchStop();
-    }
-    changeWatchStop = watch(playerData, (newPlayerData : PlayerData) => 
-    {
-      playerDataChanged.value = true;
-    }, { deep: true });
+    const data = await SaveGameManager.getPlayerData();
+    playerData.value = { ...data };
+    originalData.value = { ...data };
+    errorMessage.value = '';
+    ready.value = true;
   }
-
-  async function refreshData()
+  catch (error)
   {
-    playerData.value = await SaveGameManager.getPlayerData();
-    setupPlayerDataChangeWatch();
+    errorMessage.value = error instanceof Error ? error.message : String(error);
   }
+}
 
-  async function resetPlayerData()
+async function resetPlayerData()
+{
+  await refreshData();
+}
+
+async function savePlayerData()
+{
+  if(!ready.value)
   {
-    playerDataChanged.value = false;
+    return;
+  }
+  try
+  {
+    await SaveGameManager.modifyPlayerData(playerChanges(playerData.value, originalData.value));
     await refreshData();
   }
-
-  async function savePlayerData()
+  catch (error)
   {
-    await SaveGameManager.modifyPlayerData(playerData.value);
-    await resetPlayerData();
+    errorMessage.value = error instanceof Error ? error.message : String(error);
   }
+}
 
-  onBeforeMount(async() =>
-  {
-    await refreshData();
-  });
+onBeforeMount(refreshData);
 </script>
 
 <template>
@@ -52,6 +61,20 @@ import { ref, onBeforeMount, watch, reactive, WatchStopHandle } from 'vue';
       density="compact"
     >
       <v-container>
+        <v-alert
+          type="warning"
+          variant="tonal"
+          class="mb-4"
+        >
+          {{ progressionWarning }}
+        </v-alert>
+        <v-alert
+          v-if="errorMessage"
+          type="error"
+          class="mb-4"
+        >
+          {{ errorMessage }}
+        </v-alert>
         <v-row>
           <v-col
             cols="4"
@@ -88,6 +111,7 @@ import { ref, onBeforeMount, watch, reactive, WatchStopHandle } from 'vue';
           >
             <v-text-field
               v-model="playerData.Exp"
+              readonly
               type="number"
               label="Experience"
               variant="underlined"
@@ -98,6 +122,7 @@ import { ref, onBeforeMount, watch, reactive, WatchStopHandle } from 'vue';
           >
             <v-text-field
               v-model="playerData.PerkPoints"
+              readonly
               type="number"
               label="Talent Points"
               variant="underlined"
@@ -108,6 +133,9 @@ import { ref, onBeforeMount, watch, reactive, WatchStopHandle } from 'vue';
           >
             <v-text-field
               v-model="playerData.BaseInventoryCapacity"
+              min="0"
+              max="2147483647"
+              step="1"
               type="number"
               label="Base Inventory Capacity"
               variant="underlined"

@@ -53,12 +53,12 @@
   <div class="d-flex flex-column ma-5">
     <v-card class="mb-5 bg-grey-darken-4">
       <v-card-title class="text-h5">Collection Unlocks / Locks</v-card-title>
-      <v-card-subtitle>Instantly complete or revert collections for Field Guide challenges.</v-card-subtitle>
+      <v-card-subtitle>Collection state editing; challenge completion is not guaranteed.</v-card-subtitle>
       <v-card-text>
         <v-alert type="info" variant="tonal" class="mb-4">
           <strong>Unlock</strong> marks items as obtained in your <strong>Field Guide</strong>.
           <br>
-          <strong>Lock</strong> reverts them — useful to fix quest bugs caused by premature unlocks.
+          <strong>Lock</strong> clears collection state, including legitimately collected items. It does not restore a backup.
           <br>
           Use "Locks" pages if you want to toggle the <em>ability to use</em> items (like spells or talents).
         </v-alert>
@@ -112,49 +112,24 @@
         </v-card>
       </v-col>
 
-      <!-- Field Guide Pages -->
       <v-col cols="12" md="6">
         <v-card height="100%">
-          <v-card-title>Field Guide Pages</v-card-title>
+          <v-card-title>Revelio Pages — unavailable</v-card-title>
           <v-card-text>
-            Unlock all Revelio Pages lore entries.
-            <div class="text-caption text-grey">Great for leveling up and challenges.</div>
+            Revelio lore entries and other Field Guide pages use different progress state.
+            Page unlock and lock actions are disabled until their effects are verified.
+            This editor does not complete page challenges or grant their XP.
           </v-card-text>
-          <v-card-actions class="flex-column ga-2 pa-4">
-            <v-btn block color="primary" variant="tonal" :loading="isWorking"
-              prepend-icon="mdi-lock-open-variant"
-              @click="performAction('Field Guide Pages Unlocked', () => SaveGameManager.unlockRevelioPages())">
-              UNLOCK PAGES
-            </v-btn>
-            <v-btn block color="error" variant="tonal" :loading="isWorking"
-              prepend-icon="mdi-lock"
-              @click="requestLock('Field Guide Pages Locked', () => SaveGameManager.lockRevelioPages())">
-              LOCK PAGES
-            </v-btn>
-          </v-card-actions>
         </v-card>
       </v-col>
 
-      <!-- Wand Handles -->
       <v-col cols="12" md="6">
         <v-card height="100%">
-          <v-card-title>Wand Handles</v-card-title>
+          <v-card-title>Wand Handles — unavailable</v-card-title>
           <v-card-text>
-            Unlock all Wand Handles variations.
-            <div class="text-caption text-grey">Customize your wand's appearance.</div>
+            Unlock and lock actions are disabled until ownership and usage locks can be
+            changed safely. Restoring your backup is the way to undo earlier edits.
           </v-card-text>
-          <v-card-actions class="flex-column ga-2 pa-4">
-            <v-btn block color="brown" variant="tonal" :loading="isWorking"
-              prepend-icon="mdi-lock-open-variant"
-              @click="performAction('Wand Handles Unlocked', () => SaveGameManager.unlockWandHandles())">
-              UNLOCK HANDLES
-            </v-btn>
-            <v-btn block color="error" variant="tonal" :loading="isWorking"
-              prepend-icon="mdi-lock"
-              @click="requestLock('Wand Handles Locked', () => SaveGameManager.lockWandHandles())">
-              LOCK HANDLES
-            </v-btn>
-          </v-card-actions>
         </v-card>
       </v-col>
 
@@ -193,7 +168,7 @@
           This will <strong>revert the entire category</strong> to a locked/not-obtained state,
           including items you may have legitimately collected in-game.
           <br><br>
-          Use this to fix quest bugs, then re-unlock after completing the quest.
+          This is not a verified quest repair. Restore a backup to undo earlier edits.
         </v-card-text>
         <v-card-actions>
           <v-spacer />
