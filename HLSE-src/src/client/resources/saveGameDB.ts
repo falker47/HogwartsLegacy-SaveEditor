@@ -188,10 +188,10 @@ export class SaveGameDB {
         }
 
         const experience = validatePlayerNumber(
-            String(experienceRows[0].values[0][0]), 'Experience', 74000
+            String(experienceRows[0].values[0][0]), 'Stored Experience'
         );
         const unspentTalentPoints = validatePlayerNumber(
-            String(pointsRows[0].values[0][0]), 'Talent Points', 36
+            String(pointsRows[0].values[0][0]), 'Stored Talent Points'
         );
 
         const spentRows = db.exec('SELECT COUNT(*) FROM PerkDynamic');
