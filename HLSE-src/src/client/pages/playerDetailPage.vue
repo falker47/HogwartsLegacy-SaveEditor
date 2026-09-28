@@ -107,7 +107,7 @@ onBeforeMount(refreshData);
         </v-row>
         <v-row>
           <v-col
-            cols="4"
+            cols="3"
           >
             <v-text-field
               v-model="playerData.Exp"
@@ -120,7 +120,7 @@ onBeforeMount(refreshData);
             />
           </v-col>
           <v-col
-            cols="4"
+            cols="3"
           >
             <v-text-field
               v-model="playerData.PerkPoints"
@@ -133,7 +133,7 @@ onBeforeMount(refreshData);
             />
           </v-col>
           <v-col
-            cols="4"
+            cols="3"
           >
             <v-text-field
               v-model="playerData.BaseInventoryCapacity"
@@ -142,6 +142,18 @@ onBeforeMount(refreshData);
               step="1"
               type="number"
               label="Base Inventory Capacity"
+              variant="underlined"
+            />
+          </v-col>
+          <v-col
+            cols="3"
+          >
+            <v-text-field
+              v-model="playerData.Galleons"
+              min="0"
+              step="1"
+              type="number"
+              label="Galleons"
               variant="underlined"
             />
           </v-col>
