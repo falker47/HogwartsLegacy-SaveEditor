@@ -1,6 +1,8 @@
-[size=5][b]Hogwarts Legacy Save Editor & Manager v1.0.4[/b][/size]
+[size=5][b]Hogwarts Legacy Save Editor & Manager v1.0.5[/b][/size]
 
 A Windows desktop workflow for locating, backing up and editing Hogwarts Legacy saves without manually moving files between a save manager and a browser editor.
+
+v1.0.5 is a maintenance release fixing raw DB1/DB2 exports and hlsavetool DB2 tail parsing. It includes the reproducible, hash-verified vendored hlsavetool package with its MIT license, patch and provenance, plus CI/release-flow and third-party provenance hardening.
 
 [line]
 
@@ -9,7 +11,7 @@ A Windows desktop workflow for locating, backing up and editing Hogwarts Legacy 
 [*][b]Save discovery:[/b] detects the standard Hogwarts Legacy save location, with manual override and persistent configuration.
 [*][b]Automatic backups:[/b] creates a backup before an edited save is written back.
 [*][b]Integrated editor:[/b] opens the HLSGE-derived editor inside PyWebView next to the manager.
-[*][b]Automatic write-back:[/b] the editor's Download action is intercepted locally and the edited database is recompressed through hlsaves.
+[*][b]Automatic write-back:[/b] full-save downloads are intercepted locally and recompressed through hlsaves; raw DB1/DB2 downloads export SQLite files separately without save recompression or write-back.
 [*][b]Oodle discovery:[/b] checks common Steam/Epic installations first; a wider search or manual selection is available when needed.
 [/list]
 
@@ -23,7 +25,7 @@ A Windows desktop workflow for locating, backing up and editing Hogwarts Legacy 
 
 [b]The Oodle DLL is not bundled with this project.[/b]
 
-The current v1.0.4 application also contains a hash-pinned fallback download from the third-party new-world-tools/go-oodle GitHub release assets. This is not an official Epic Games distribution channel; using a DLL from your own installed game is preferable when available.
+The current v1.0.5 application also contains a hash-pinned fallback download from the third-party new-world-tools/go-oodle GitHub release assets. This is not an official Epic Games distribution channel; using a DLL from your own installed game is preferable when available.
 
 [line]
 

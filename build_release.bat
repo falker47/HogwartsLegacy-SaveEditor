@@ -32,7 +32,7 @@ if errorlevel 1 (
 
 where powershell >nul 2>&1
 if errorlevel 1 (
-    echo ERROR: Windows PowerShell is required to acquire the pinned hlsavetool dependency.
+    echo ERROR: Windows PowerShell is required to install the verified vendored hlsavetool dependency.
     exit /b 1
 )
 
