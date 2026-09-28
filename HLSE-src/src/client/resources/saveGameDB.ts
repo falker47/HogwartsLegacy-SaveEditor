@@ -4,6 +4,7 @@ import initSqlJs, { Database } from 'sql.js';
 
 import { GearItem, LockListItem, LockState, PlayerData, PlayerResource } from '../interfaces';
 import { progressionWarning, validatePlayerNumber } from './playerEdits';
+import { REVELIO_PAGE_IDS } from './revelioPages';
 
 interface LockItem {
     LockID: string;
@@ -322,7 +323,33 @@ export class SaveGameDB {
     }
 
     async unlockRevelioPages(): Promise<void> {
-        throw new Error('Revelio Pages editing is disabled: safe unlock and revert semantics are not verified.');
+        const db = await this.#gameDB;
+        const placeholders = REVELIO_PAGE_IDS.map(() => '?').join(',');
+        const existing = db.exec(
+            `SELECT COUNT(DISTINCT ItemID) FROM CollectionDynamic WHERE ItemID IN (${ placeholders })`,
+            [...REVELIO_PAGE_IDS]
+        );
+        const count = Number(existing[0]?.values[0]?.[0] ?? 0);
+        if(count === 0)
+        {
+            throw new Error('No known Revelio Page collection rows were found in this save; no changes applied.');
+        }
+
+        db.run('BEGIN TRANSACTION');
+        try
+        {
+            db.run(
+                `UPDATE CollectionDynamic SET ItemState = 'Obtained'
+                 WHERE ItemID IN (${ placeholders }) AND ItemState <> 'Obtained'`,
+                [...REVELIO_PAGE_IDS]
+            );
+            db.run('COMMIT');
+        }
+        catch (error)
+        {
+            db.run('ROLLBACK');
+            throw error;
+        }
     }
 
     async unlockWandHandles(): Promise<void> {
