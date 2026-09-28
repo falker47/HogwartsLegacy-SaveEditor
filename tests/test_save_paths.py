@@ -17,6 +17,25 @@ from src.save_paths import (
 )
 
 
+def build_wgs_tree(tmp_path, payloads):
+    root = (tmp_path / "Packages" / "WarnerBros.Interactive.PHX_ktmk1xygcecda"
+            / "SystemAppData" / "wgs")
+    user = root / "user"
+    user.mkdir(parents=True)
+    (user / "containers.index").write_bytes(b"index sentinel")
+    paths = {}
+    for relative, data in payloads.items():
+        path = user / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        paths[relative] = path
+    return root, paths
+
+
+def snapshot_tree(root):
+    return {p.relative_to(root): p.read_bytes() for p in root.rglob("*") if p.is_file()}
+
+
 @pytest.fixture
 def wgs(tmp_path):
     root = (tmp_path / "Packages" / "WarnerBros.Interactive.PHX_ktmk1xygcecda"
@@ -195,11 +214,14 @@ def test_force_auto_detect_switches_back_from_manual_mode_and_persists(app, tmp_
     instance._save_config.assert_called_once()
 
 
-def test_wgs_payload_discovery_and_export_are_read_only_and_byte_exact(tmp_path, wgs):
-    root, payload = wgs
-    source_bytes = b"GVAS synthetic-prefix HL-03-10 synthetic-save-body"
-    payload.write_bytes(source_bytes)
-    (payload.parent / "metadata").write_bytes(b"no save tag here")
+def test_wgs_payload_discovery_and_export_are_read_only_and_byte_exact(tmp_path):
+    root, paths = build_wgs_tree(tmp_path, {
+        "container/ABCDEF": b"GVAS synthetic-prefix HL-03-10 synthetic-save-body",
+        "container/metadata": b"no save tag here",
+        "container/container.1": b"metadata sentinel",
+    })
+    payload = paths["container/ABCDEF"]
+    before = snapshot_tree(root)
     destination = tmp_path / "exported"
 
     discovered = discover_wgs_save_payloads(root)
@@ -207,24 +229,29 @@ def test_wgs_payload_discovery_and_export_are_read_only_and_byte_exact(tmp_path,
 
     outputs = export_wgs_saves(root, destination)
     assert outputs == [destination / "HL-03-10.sav"]
-    assert outputs[0].read_bytes() == source_bytes
-    assert payload.read_bytes() == source_bytes
+    assert outputs[0].read_bytes() == payload.read_bytes()
+    assert snapshot_tree(root) == before
 
 
-def test_wgs_export_fails_closed_on_conflicting_payloads(tmp_path, wgs):
-    root, payload = wgs
-    payload.write_bytes(b"GVAS first HL-03-10 payload")
-    other = payload.parent.parent / "other" / "SECOND"
-    other.parent.mkdir()
-    other.write_bytes(b"GVAS second different HL-03-10 payload")
+def test_wgs_export_fails_closed_on_conflicting_payloads(tmp_path):
+    root, _ = build_wgs_tree(tmp_path, {
+        "container/ABCDEF": b"GVAS first HL-03-10 payload",
+        "other/SECOND": b"GVAS second different HL-03-10 payload",
+        "container/container.1": b"metadata sentinel",
+    })
+    before = snapshot_tree(root)
 
     with pytest.raises(ValueError, match="Multiple different Game Pass payloads"):
         discover_wgs_save_payloads(root)
+    assert snapshot_tree(root) == before
 
 
-def test_wgs_export_refuses_existing_destination_without_overwrite(tmp_path, wgs):
-    root, payload = wgs
-    payload.write_bytes(b"GVAS source HL-03-10 payload")
+def test_wgs_export_refuses_existing_destination_without_overwrite(tmp_path):
+    root, _ = build_wgs_tree(tmp_path, {
+        "container/ABCDEF": b"GVAS source HL-03-10 payload",
+        "container/container.1": b"metadata sentinel",
+    })
+    before = snapshot_tree(root)
     destination = tmp_path / "exported"
     destination.mkdir()
     existing = destination / "HL-03-10.sav"
@@ -233,19 +260,24 @@ def test_wgs_export_refuses_existing_destination_without_overwrite(tmp_path, wgs
     with pytest.raises(ValueError, match="Destination already contains"):
         export_wgs_saves(root, destination)
     assert existing.read_bytes() == b"sentinel"
+    assert snapshot_tree(root) == before
 
 
-def test_app_exports_gamepass_saves_then_selects_export_folder(app, tmp_path, wgs, monkeypatch):
+def test_app_exports_gamepass_saves_then_selects_export_folder(app, tmp_path, monkeypatch):
     instance, module = app
-    root, payload = wgs
-    payload.write_bytes(b"GVAS source HL-03-10 payload")
+    root, paths = build_wgs_tree(tmp_path, {
+        "container/ABCDEF": b"GVAS source HL-03-10 payload",
+        "container/container.1": b"metadata sentinel",
+    })
+    before = snapshot_tree(root)
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
     destination = tmp_path / "gamepass-export"
     monkeypatch.setattr(module.filedialog, "askdirectory", lambda **_: str(destination))
 
     instance._export_game_pass_saves()
 
-    assert (destination / "HL-03-10.sav").read_bytes() == payload.read_bytes()
+    assert (destination / "HL-03-10.sav").read_bytes() == paths["container/ABCDEF"].read_bytes()
+    assert snapshot_tree(root) == before
     assert instance.save_directory == destination.resolve()
     assert instance.config["save_directory"] == str(destination.resolve())
     assert instance.config["auto_detect_saves"] is False
