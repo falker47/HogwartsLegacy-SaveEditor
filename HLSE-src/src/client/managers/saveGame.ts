@@ -1,6 +1,7 @@
 import AppStateRA from '../resources/appState';
 import { GearItem, LockState, PlayerData, PlayerResource } from '../interfaces';
 import { FastTravelLocks, TransFigurationLocks, SpellLocks, GearLocks, TraitLocks } from '../resources/lists';
+import { ProgressionContext, ProgressionEditOptions } from '../resources/playerEdits';
 
 class SaveGameManager {
     async getPlayerResourceInventory(): Promise<PlayerResource[]> {
@@ -43,11 +44,21 @@ class SaveGameManager {
         return AppStateRA.saveGameDB.deletePlayerPerk(perkName);
     }
 
-    async modifyPlayerData(playerData: Partial<PlayerData>): Promise<void> {
+    async getProgressionContext(): Promise<ProgressionContext> {
+        if (!AppStateRA.saveGameDB) {
+            throw new Error('Load a save before reading progression.');
+        }
+        return AppStateRA.saveGameDB.getProgressionContext();
+    }
+
+    async modifyPlayerData(
+        playerData: Partial<PlayerData>,
+        options: ProgressionEditOptions = {}
+    ): Promise<void> {
         if (!AppStateRA.saveGameDB) {
             throw new Error('Load a save before applying Player changes.');
         }
-        await AppStateRA.saveGameDB.modifyPlayerData(playerData);
+        await AppStateRA.saveGameDB.modifyPlayerData(playerData, options);
     }
 
     async modifyPlayerResource(playerResource: PlayerResource): Promise<void> {
