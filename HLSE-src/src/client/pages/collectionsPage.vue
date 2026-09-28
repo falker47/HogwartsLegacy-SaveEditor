@@ -114,12 +114,22 @@
 
       <v-col cols="12" md="6">
         <v-card height="100%">
-          <v-card-title>Revelio Pages — unavailable</v-card-title>
+          <v-card-title>Revelio Pages</v-card-title>
           <v-card-text>
-            Revelio lore entries and other Field Guide pages use different progress state.
-            Page unlock and lock actions are disabled until their effects are verified.
-            This editor does not complete page challenges or grant their XP.
+            Mark the 147 known Revelio lore-page collection entries as obtained.
+            <div class="text-caption text-grey">
+              This targets only verified Revelio ItemIDs in CollectionDynamic.
+              It does not modify flying/moth/brazier/statue pages, challenge rewards, or XP.
+              Restore your backup to undo the operation.
+            </div>
           </v-card-text>
+          <v-card-actions class="flex-column ga-2 pa-4">
+            <v-btn block color="primary" variant="tonal" :loading="isWorking"
+              prepend-icon="mdi-lock-open-variant"
+              @click="performAction('Revelio Pages Unlocked', () => SaveGameManager.unlockRevelioPages())">
+              UNLOCK REVELIO PAGES
+            </v-btn>
+          </v-card-actions>
         </v-card>
       </v-col>
 
