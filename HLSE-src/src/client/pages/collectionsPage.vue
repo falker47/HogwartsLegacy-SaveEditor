@@ -125,11 +125,22 @@
 
       <v-col cols="12" md="6">
         <v-card height="100%">
-          <v-card-title>Wand Handles — unavailable</v-card-title>
+          <v-card-title>Wand Handles</v-card-title>
           <v-card-text>
-            Unlock and lock actions are disabled until ownership and usage locks can be
-            changed safely. Restoring your backup is the way to undo earlier edits.
+            Unlock the WandStyle entries present in this save and their matching usage locks.
+            <div class="text-caption text-grey">
+              The operation derives IDs from your save; it does not depend on the missing LockDefinition table.
+              Lock-back remains unavailable because it cannot distinguish legitimately collected handles.
+              Restore your backup to undo the unlock.
+            </div>
           </v-card-text>
+          <v-card-actions class="flex-column ga-2 pa-4">
+            <v-btn block color="brown" variant="tonal" :loading="isWorking"
+              prepend-icon="mdi-lock-open-variant"
+              @click="performAction('Wand Handles Unlocked', () => SaveGameManager.unlockWandHandles())">
+              UNLOCK WAND HANDLES
+            </v-btn>
+          </v-card-actions>
         </v-card>
       </v-col>
 
