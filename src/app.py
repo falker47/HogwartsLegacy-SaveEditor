@@ -13,10 +13,11 @@ import threading
 import json
 import urllib.request
 import urllib.error
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import customtkinter as ctk
 
@@ -34,7 +35,7 @@ from .config import (
     MIN_HEIGHT, MIN_WIDTH, SELECTED_BORDER_COLOR, SELECTED_COLOR, TASKBAR_HEIGHT
 )
 from .editor import launch_editor_process
-from .utils import format_file_size, parse_save_filename
+from .save_browser import SaveBrowser, SaveEntry, format_entry
 from .save_paths import WGS_LIMITATION, find_hogwarts_wgs, require_loose_save_path
 
 
@@ -80,10 +81,20 @@ class App(BaseWindow):
 
         # State
         self.save_directory: Optional[Path] = None
-        self.save_files: List[Tuple[Path, datetime]] = []
+        self.save_files: List[SaveEntry] = []
+        self.visible_save_files: List[SaveEntry] = []
+        self._save_entries = {}
+        self.save_browser = SaveBrowser()
+        self._browser_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="save-metadata")
+        self._browser_future = None
+        self._browser_generation = 0
+        self._browser_directory = None
+        self._browser_poll_id = None
+        self.selected_profile = None
+        self.location_locale = 'en'
         self.current_save_file: Optional[Path] = None
         self.current_decomp_file: Optional[Path] = None
-        self.selected_button: Optional[ctk.CTkButton] = None
+        self.selected_button: Optional[ctk.CTkFrame] = None
         self.editor_process: Optional[multiprocessing.Process] = None
         self.is_working = False
 
@@ -125,6 +136,13 @@ class App(BaseWindow):
             except Exception as e:
                 print(f"Failed to load user config: {e}")
         return {"auto_detect_saves": True}
+
+    def destroy(self):
+        self._browser_generation += 1
+        if self._browser_poll_id is not None:
+            self.after_cancel(self._browser_poll_id)
+        self._browser_executor.shutdown(wait=False, cancel_futures=True)
+        super().destroy()
 
     def _save_config(self) -> None:
         try:
@@ -343,8 +361,8 @@ class App(BaseWindow):
         """Create the main UI layout."""
         main_frame = ctk.CTkFrame(self, fg_color=BACKGROUND_COLOR)
         main_frame.pack(fill="both", expand=True)
-        main_frame.grid_columnconfigure(0, weight=1)
-        main_frame.grid_columnconfigure(1, weight=2)
+        main_frame.grid_columnconfigure(0, weight=1, uniform="panels")
+        main_frame.grid_columnconfigure(1, weight=1, uniform="panels")
         main_frame.grid_rowconfigure(0, weight=1)
 
         # LEFT PANEL
@@ -365,21 +383,22 @@ class App(BaseWindow):
             justify="left", wraplength=360
         )
         self.path_label.grid(row=1, column=0, sticky="w")
+        header.bind('<Configure>', lambda event: self.path_label.configure(wraplength=max(150, event.width - 10)))
+        self.profile_menu = ctk.CTkOptionMenu(header, values=['All profiles'], command=self._on_profile_changed)
+        self.profile_menu.grid(row=2, column=0, pady=(8, 4), sticky='ew')
+        self.location_menu = ctk.CTkOptionMenu(header, values=['Locations: English', 'Locations: Italiano'],
+                                             command=self._on_location_language_changed)
+        self.location_menu.grid(row=3, column=0, pady=(0, 4), sticky='ew')
+        self.catalog_label = ctk.CTkLabel(header, text='', font=ctk.CTkFont(size=11), text_color='gray')
+        self.catalog_label.grid(row=4, column=0, sticky='w')
 
         self.save_list_frame = ctk.CTkScrollableFrame(left)
         self.save_list_frame.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
         self.save_list_frame.grid_columnconfigure(0, weight=1)
 
-        # Info panel
-        self.info_frame = ctk.CTkFrame(left, fg_color=INFO_PANEL_COLOR, corner_radius=8)
-        self.info_frame.grid(row=2, column=0, padx=10, pady=5, sticky="ew")
-        self.info_label = ctk.CTkLabel(self.info_frame, text="Select a save file",
-            font=ctk.CTkFont(size=11), text_color="gray", justify="left")
-        self.info_label.pack(padx=10, pady=8, anchor="w")
-
         # Buttons
         btns = ctk.CTkFrame(left, fg_color="transparent")
-        btns.grid(row=3, column=0, padx=10, pady=(5, 10), sticky="ew")
+        btns.grid(row=2, column=0, padx=10, pady=(5, 10), sticky="ew")
         btns.grid_columnconfigure(0, weight=1)
         btns.grid_columnconfigure(1, weight=1)
 
@@ -406,9 +425,17 @@ class App(BaseWindow):
             font=ctk.CTkFont(family="Consolas", size=12), state="disabled")
         self.log_textbox.grid(row=1, column=0, padx=15, pady=5, sticky="nsew")
 
+        # Keep selected-save details beside the list so cards retain vertical space.
+        self.info_frame = ctk.CTkFrame(right, fg_color=INFO_PANEL_COLOR, corner_radius=8)
+        self.info_frame.grid(row=2, column=0, padx=15, pady=5, sticky="ew")
+        self.info_label = ctk.CTkLabel(self.info_frame, text="Select a save file",
+            font=ctk.CTkFont(size=11), text_color="gray", justify="left", anchor='w')
+        self.info_label.pack(padx=10, pady=8, fill='x')
+        self.info_frame.bind('<Configure>', lambda event: self.info_label.configure(wraplength=max(150, event.width - 24)))
+
         # Actions frame
         actions = ctk.CTkFrame(right, fg_color="transparent")
-        actions.grid(row=2, column=0, padx=15, pady=10, sticky="ew")
+        actions.grid(row=3, column=0, padx=15, pady=10, sticky="ew")
         actions.grid_columnconfigure(0, weight=1)
 
         # Main action button
@@ -434,10 +461,11 @@ class App(BaseWindow):
             wraplength=400
         )
         info_text.grid(row=2, column=0, pady=(10, 0))
+        actions.bind('<Configure>', lambda event: info_text.configure(wraplength=max(150, event.width - 20)))
 
         # Bottom buttons
         bottom = ctk.CTkFrame(right, fg_color="transparent")
-        bottom.grid(row=3, column=0, padx=15, pady=(10, 15), sticky="ew")
+        bottom.grid(row=4, column=0, padx=15, pady=(10, 15), sticky="ew")
         bottom.grid_columnconfigure(0, weight=1)
 
         ctk.CTkButton(bottom, text="📂 Backups", command=self._open_backup_folder,
@@ -526,7 +554,6 @@ class App(BaseWindow):
             return False
         self.save_directory = directory.resolve()
         self.backup_dir = self.save_directory / "Backups"
-        self.backup_dir.mkdir(exist_ok=True)
         self.path_label.configure(text=f"{source}: {self.save_directory}")
         self._log(f"📁 {source}: {self.save_directory}")
         self._refresh_save_list()
@@ -597,7 +624,7 @@ class App(BaseWindow):
             self._save_config()
 
     def _refresh_save_list(self) -> None:
-        """Refresh the list of save files (thread-safe)."""
+        """Submit read-only work; only the main thread polls and renders Tk widgets."""
         if threading.current_thread() is not threading.main_thread():
             try:
                 self.after(0, self._refresh_save_list)
@@ -605,53 +632,115 @@ class App(BaseWindow):
                 pass
             return
 
-        for w in self.save_list_frame.winfo_children():
-            w.destroy()
-
-        self.save_files = []
-        self.current_save_file = None
-        self.selected_button = None
-        self._update_file_info(None)
-
-        if not self.save_directory or not self.save_directory.exists():
-            ctk.CTkLabel(self.save_list_frame, text="No directory",
-                text_color="gray").pack(pady=20)
-            return
-
+        self._browser_generation += 1
+        if self._browser_future:
+            self._browser_future.cancel()
+        if self._browser_poll_id is not None:
+            self.after_cancel(self._browser_poll_id)
+            self._browser_poll_id = None
+        directory = self.save_directory
+        if directory != self._browser_directory:
+            self.selected_profile = None
+            self._browser_directory = directory
         try:
-            require_loose_save_path(self.save_directory)
+            if not directory or not directory.is_dir():
+                raise ValueError('No save directory selected')
+            require_loose_save_path(directory)
         except (ValueError, OSError) as exc:
+            self.save_files = []
+            self._save_entries = {}
+            self._render_save_cards()
             self._log(f"⚠️ {exc}")
             return
-        saves = [f for f in self.save_directory.glob("*.sav") if f.is_file()]
-        if not saves:
-            ctk.CTkLabel(self.save_list_frame, text="No saves found",
-                text_color="gray").pack(pady=20)
+        # Clear old folder identities immediately, even while a new scan is pending.
+        if any(e.path.parent != directory for e in self.save_files):
+            self.save_files = []
+            self._save_entries = {}
+            self._render_save_cards()
+        self.catalog_label.configure(text='Reading save metadata…')
+        future = self._browser_executor.submit(self.save_browser.discover, directory)
+        self._browser_future = future
+        self._poll_save_catalog(future, self._browser_generation, directory)
+
+    def _poll_save_catalog(self, future, generation, directory):
+        if generation != self._browser_generation or directory != self.save_directory:
             return
+        self._browser_poll_id = None
+        if not future.done():
+            self._browser_poll_id = self.after(40, lambda: self._poll_save_catalog(future, generation, directory))
+            return
+        try:
+            catalog = future.result()
+        except Exception as exc:
+            self.catalog_label.configure(text='Could not read save folder')
+            self._log(f'⚠️ Save discovery failed: {exc}')
+            return
+        self.save_files = list(catalog.entries)
+        self._save_entries = {e.path: e for e in self.save_files}
+        profiles = sorted({e.slot for e in self.save_files if e.slot is not None})
+        values = ['All profiles'] + [f'Profile {slot}' for slot in profiles]
+        if self.selected_profile not in values:
+            latest_slot = self.save_files[0].slot if self.save_files else None
+            self.selected_profile = f'Profile {latest_slot}' if latest_slot is not None else 'All profiles'
+        self.profile_menu.configure(values=values)
+        self.profile_menu.set(self.selected_profile)
+        self._render_save_cards()
+        self._log(f'🔄 Found {len(self.save_files)} player save(s).')
+        for filename, reason in catalog.excluded:
+            self._log(f'ℹ️ Excluded {filename}: {reason}')
+        for warning in catalog.warnings:
+            self._log(f'⚠️ {warning}')
 
-        saves.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+    def _on_profile_changed(self, value):
+        self.selected_profile = value
+        self._render_save_cards()
 
-        for sav in saves:
-            stat = sav.stat()
-            mod = datetime.fromtimestamp(stat.st_mtime)
-            self.save_files.append((sav, mod))
+    def _on_location_language_changed(self, value):
+        self.location_locale = 'it' if value == 'Locations: Italiano' else 'en'
+        self._render_save_cards()
 
-            info = parse_save_filename(sav.name)
-            size = format_file_size(stat.st_size)
+    def _render_save_cards(self):
+        selected = self.current_save_file
+        self.selected_button = None
+        for widget in self.save_list_frame.winfo_children():
+            widget.destroy()
+        self.visible_save_files = [e for e in self.save_files if
+                                   self.selected_profile in (None, 'All profiles') or
+                                   self.selected_profile == f'Profile {e.slot}']
+        for entry in self.visible_save_files:
+            card = self._create_save_card(entry)
+            card.pack(fill='x', pady=3)
+            if entry.path == selected:
+                self.selected_button = card
+                card.configure(fg_color=SELECTED_COLOR, border_width=2, border_color=SELECTED_BORDER_COLOR)
+        if selected not in {e.path for e in self.visible_save_files}:
+            self.current_save_file = None
+        self._update_file_info(self.current_save_file)
+        if not self.visible_save_files:
+            ctk.CTkLabel(self.save_list_frame, text='No player saves found', text_color='gray').pack(pady=20)
+        self.catalog_label.configure(text=f'{len(self.visible_save_files)} shown · {len(self.save_files)} player saves total')
 
-            btn = ctk.CTkButton(
-                self.save_list_frame,
-                text=f"🎮 {info['display']}\n   {mod.strftime('%Y-%m-%d %H:%M')}  •  {size}",
-                anchor="w", height=55, font=ctk.CTkFont(size=12),
-                fg_color="gray25", hover_color="gray35",
-                command=lambda f=sav: None
-            )
-            btn.configure(command=lambda f=sav, b=btn: self._select_save_file(f, b))
-            btn.pack(fill="x", pady=2)
+    def _create_save_card(self, entry):
+        display = format_entry(entry, locale=self.location_locale)
+        card = ctk.CTkFrame(self.save_list_frame, fg_color='gray25', corner_radius=8, cursor='hand2')
+        labels = []
+        lines = [(display.title, 15, 'bold', '#eeeeee'), (display.summary, 12, 'normal', '#dddddd'),
+                 (display.date, 11, 'normal', '#bbbbbb'), (display.technical, 10, 'normal', '#aaaaaa')]
+        select = lambda event: self._select_save_file(entry.path, card)
+        card.bind('<Button-1>', select)
+        for index, (text, size, weight, color) in enumerate(lines):
+            label = ctk.CTkLabel(card, text=text, font=ctk.CTkFont(size=size, weight=weight),
+                                 text_color=color, anchor='w', justify='left', height=18, wraplength=240)
+            label.pack(fill='x', padx=12, pady=(8 if index == 0 else 0, 8 if index == 3 else 2))
+            label.bind('<Button-1>', select)
+            labels.append(label)
+        def resize(event):
+            for label in labels:
+                label.configure(wraplength=max(100, event.width - 28))
+        card.bind('<Configure>', resize)
+        return card
 
-        self._log(f"🔄 Found {len(saves)} save(s).")
-
-    def _select_save_file(self, save_file: Path, button: Optional[ctk.CTkButton] = None) -> None:
+    def _select_save_file(self, save_file: Path, button: Optional[ctk.CTkFrame] = None) -> None:
         """Select a save file."""
         if self.selected_button:
             self.selected_button.configure(fg_color="gray25", border_width=0)
@@ -672,16 +761,8 @@ class App(BaseWindow):
             self.info_label.configure(text="Select a save file", text_color="gray")
             return
 
-        stat = save_file.stat()
-        info = parse_save_filename(save_file.name)
-        mod = datetime.fromtimestamp(stat.st_mtime)
-
-        text = (
-            f"📄 {save_file.name}\n"
-            f"🎮 {info['display']}\n"
-            f"📅 {mod.strftime('%Y-%m-%d %H:%M')}\n"
-            f"💾 {format_file_size(stat.st_size)}"
-        )
+        entry = self._save_entries.get(save_file)
+        text = format_entry(entry, locale=self.location_locale).details if entry else 'Save metadata unavailable; refresh the list'
         self.info_label.configure(text=text, text_color="#a0a0a0")
 
     def _extract_and_edit(self) -> None:
@@ -706,26 +787,31 @@ class App(BaseWindow):
             messagebox.showerror("Error", f"{HLSAVES_EXE} not found!")
             return
 
+        # Pin the exact selected source before background discovery/selection can change.
+        save_file = self.current_save_file
+        backup_dir = self.backup_dir
+
         def do_work():
             try:
                 self._show_progress("Creating backup...")
                 self._log("📦 Creating backup...")
 
                 ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                backup = self.backup_dir / f"{self.current_save_file.stem}_{ts}.sav.bak"
-                shutil.copy2(self.current_save_file, backup)
+                backup_dir.mkdir(exist_ok=True)
+                backup = backup_dir / f"{save_file.stem}_{ts}.sav.bak"
+                shutil.copy2(save_file, backup)
                 self._log("✅ Backup created")
 
                 self._show_progress("Preparing save file...")
 
                 # Copy to temp
-                temp_sav = self.temp_dir / self.current_save_file.name
-                shutil.copy2(self.current_save_file, temp_sav)
+                temp_sav = self.temp_dir / save_file.name
+                shutil.copy2(save_file, temp_sav)
 
                 self._show_progress("Decompressing...")
                 self._log("🔓 Decompressing...")
 
-                decomp = self.temp_dir / f"{self.current_save_file.stem}.decomp"
+                decomp = self.temp_dir / f"{save_file.stem}.decomp"
                 self.current_decomp_file = decomp
 
                 result = subprocess.run(
@@ -768,7 +854,7 @@ class App(BaseWindow):
                         target=launch_editor_process,
                         args=(
                             str(self.hlsge_html), str(decomp), decomp.name,
-                            str(self.current_save_file), str(self.hlsaves_exe),
+                            str(save_file), str(self.hlsaves_exe),
                             str(self.app_dir), str(status_file),
                             screen_width, screen_height
                         )
