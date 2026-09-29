@@ -148,7 +148,7 @@ def test_wgs_only_reports_limitation_without_selecting_it(app, tmp_path, wgs, mo
     assert instance.save_directory is None
     assert instance.backup_dir is None
     instance._refresh_save_list.assert_not_called()
-    instance.path_label.configure.assert_called_with(text="WGS unsupported")
+    instance.path_label.configure.assert_called_with(text="Game Pass saves detected - use Export Game Pass Saves")
 
 
 def test_config_selection_and_browse_refuse_wgs_before_backup_or_config_write(app, wgs, monkeypatch):

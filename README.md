@@ -5,8 +5,9 @@
 A Windows desktop manager that connects three pieces of the Hogwarts Legacy save-editing workflow: save discovery and backups, `hlsaves` compression/decompression, and the HLSGE web editor inside a local PyWebView window.
 
 Current source safety limits (after v1.0.5): Microsoft Store/Game Pass WGS containers
-are detected but import/editing is unsupported; use Browse for ordinary Steam/Epic
-`.sav` folders. Do not rename or replace WGS files with this editor. Wand Handles
+can be exported as ordinary editable `.sav` copies with **Export Game Pass Saves**.
+In-place WGS editing and cloud write-back are unsupported; Browse remains available
+for ordinary Steam/Epic `.sav` folders. Do not rename or replace WGS files with this editor. Wand Handles
 and Revelio page actions are disabled pending verified unlock/revert semantics.
 Experience and Talent Points are read-only because talent prerequisites cannot be
 reliably checked. Player Apply changes only edited fields and cannot repair previously
@@ -97,6 +98,17 @@ python main.py
 5. Use the editor's **Download** action.
 6. The bridge writes the edited database and asks `hlsaves` to recompress it into the original save path.
 
+For Microsoft Store / Game Pass, close the game and choose **Export Game Pass Saves**,
+then select a destination outside WGS. The manager detects only the known Hogwarts
+Legacy package, requires exactly one user folder marked by `containers.index`, and
+copies recognized payloads byte-for-byte. Existing target files and conflicting save
+identities stop the export; failed copies are rolled back. The exported folder then
+opens in the same profile/save browser, with manual selection persisted.
+
+These are editable/migration copies. **Edits do not return to Xbox/Game Pass cloud
+storage.** No WGS files, indexes, or container metadata are changed. Real Game Pass
+acceptance remains **MANUAL_NOT_EXECUTED**; see [safe-export validation](docs/gamepass-safe-export.md).
+
 Raw DB1/DB2 downloads instead export SQLite files to a chosen destination without save recompression or write-back to the original save.
 
 Backups are stored in a `Backups` directory under the selected save folder. Keep an independent backup before experimenting with save editors.
@@ -107,7 +119,7 @@ Backups are stored in a `Backups` directory under the selected save folder. Keep
 
 ```bash
 python -m pip install pytest
-pytest -q
+python -m pytest -q tests/
 ```
 
 The unit suite covers utility-level save-name parsing, file-size formatting and offline converter installation, including corrupt ZIP/EXE rejection and destination verification. Installer tests use Windows PowerShell or `pwsh` and are skipped when neither is available. It does **not** constitute end-to-end save-integrity certification.
