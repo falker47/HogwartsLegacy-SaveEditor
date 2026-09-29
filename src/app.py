@@ -36,7 +36,7 @@ from .config import (
 )
 from .editor import launch_editor_process
 from .save_browser import SaveBrowser, SaveEntry, format_entry, profile_labels
-from .save_paths import WGS_LIMITATION, find_hogwarts_wgs, require_loose_save_path
+from .save_paths import WGS_LIMITATION, export_wgs_saves, find_hogwarts_wgs, require_loose_save_path
 
 
 # Choose base class based on drag-drop availability
@@ -90,6 +90,7 @@ class App(BaseWindow):
         self._browser_generation = 0
         self._browser_directory = None
         self._browser_poll_id = None
+        self._export_poll_id = None
         self.selected_profile = None
         self._profile_labels = {'All profiles': 'All profiles'}
         self.location_locale = 'en'
@@ -121,8 +122,6 @@ class App(BaseWindow):
             if not self._detect_save_directory():
                 if saved_directory and Path(saved_directory).exists():
                     self._set_save_directory(Path(saved_directory), "Saved fallback")
-                else:
-                    self._log("ℹ️ Auto-detect found no ordinary saves. Please browse for a save folder.")
         elif saved_directory and Path(saved_directory).exists():
             self._set_save_directory(Path(saved_directory), "Manual folder")
         else:
@@ -142,6 +141,8 @@ class App(BaseWindow):
         self._browser_generation += 1
         if self._browser_poll_id is not None:
             self.after_cancel(self._browser_poll_id)
+        if self._export_poll_id is not None:
+            self.after_cancel(self._export_poll_id)
         self._browser_executor.shutdown(wait=False, cancel_futures=True)
         super().destroy()
 
@@ -412,6 +413,9 @@ class App(BaseWindow):
         ctk.CTkButton(btns, text="📂 Open Folder", command=self._open_save_folder,
             height=28).grid(row=1, column=1, padx=(5, 0), sticky="ew")
 
+        ctk.CTkButton(btns, text="Export Game Pass Saves", command=self._export_game_pass_saves,
+            height=28).grid(row=2, column=0, columnspan=2, pady=(5, 0), sticky="ew")
+
         # RIGHT PANEL
         right = ctk.CTkFrame(main_frame)
         right.grid(row=0, column=1, padx=(5, 10), pady=10, sticky="nsew")
@@ -551,7 +555,7 @@ class App(BaseWindow):
             self.save_directory = None
             self.backup_dir = None
             self._refresh_save_list()
-            self.path_label.configure(text="WGS unsupported — use Browse")
+            self.path_label.configure(text="WGS cannot be edited directly - use Export Game Pass Saves")
             return False
         self.save_directory = directory.resolve()
         self.backup_dir = self.save_directory / "Backups"
@@ -568,8 +572,7 @@ class App(BaseWindow):
             self._log(f"ℹ️ Game Pass / Microsoft Store WGS area detected. {WGS_LIMITATION}")
         base = Path(local_app_data) / "Hogwarts Legacy" / "Saved" / "SaveGames"
         if not local_app_data or not base.exists():
-            self._log("⚠️ Steam/Epic save dir not found. Use Browse for an ordinary .sav folder.")
-            self.path_label.configure(text="WGS unsupported" if wgs else "Not found")
+            self._report_no_detected_saves(wgs)
             return False
 
         candidates = []
@@ -582,14 +585,58 @@ class App(BaseWindow):
                 candidates.append((latest_save_mtime, folder))
 
         if not candidates:
-            self._log(f"⚠️ No ordinary .sav files found under: {base}")
-            self.path_label.configure(text=f"No saves under: {base}")
+            self._report_no_detected_saves(wgs)
             return False
 
         candidates.sort(key=lambda item: item[0], reverse=True)
         selected = candidates[0][1]
         self._log(f"🎯 Auto-detect selected the folder with the newest .sav: {selected}")
         return self._set_save_directory(selected, "Auto-detected")
+
+    def _report_no_detected_saves(self, wgs: Optional[Path]) -> None:
+        message = ("Game Pass saves detected - use Export Game Pass Saves" if wgs else
+                   "No supported save folder was auto-detected. Browse remains available.")
+        self.path_label.configure(text=message)
+        self._log(message)
+
+    def _export_game_pass_saves(self) -> None:
+        """Choose a destination on Tk's thread, then export without blocking the UI."""
+        if self.is_working:
+            return
+        wgs_root = find_hogwarts_wgs(os.environ.get("LOCALAPPDATA", ""))
+        if not wgs_root:
+            messagebox.showinfo("Game Pass Saves", "No Hogwarts Legacy Game Pass WGS folder was detected.")
+            return
+        destination = filedialog.askdirectory(
+            title="Export editable copies (no Game Pass cloud write-back)", initialdir=Path.home())
+        if not destination:
+            return
+        self._show_progress("Exporting Game Pass save copies...")
+        future = self._browser_executor.submit(export_wgs_saves, wgs_root, Path(destination))
+        self._poll_game_pass_export(future, Path(destination))
+
+    def _poll_game_pass_export(self, future, destination: Path) -> None:
+        self._export_poll_id = None
+        if not future.done():
+            self._export_poll_id = self.after(40, lambda: self._poll_game_pass_export(future, destination))
+            return
+        self._hide_progress()
+        try:
+            outputs = future.result()
+            if not self._set_save_directory(destination, "Game Pass export"):
+                raise ValueError("Exported copies could not be selected for editing. Choose a non-WGS folder.")
+            self.config["save_directory"] = str(self.save_directory)
+            self.config["auto_detect_saves"] = False
+            self._save_config()
+            self._log(f"Exported {len(outputs)} Game Pass save(s) without modifying WGS.")
+            messagebox.showinfo(
+                "Game Pass Export Complete",
+                f"Exported {len(outputs)} save(s) to:\n{self.save_directory}\n\n"
+                "These are editable/migration copies. Changes are NOT written back "
+                "to WGS or Game Pass cloud storage.")
+        except (ValueError, OSError) as exc:
+            self._log(f"Game Pass export failed: {exc}")
+            messagebox.showerror("Game Pass Export Failed", str(exc))
 
     def _auto_detect_save_directory(self) -> None:
         """Force canonical Steam/Epic auto-detection and persist auto mode."""
