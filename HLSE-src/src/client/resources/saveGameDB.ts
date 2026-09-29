@@ -3,7 +3,13 @@ import sqlJSWasmURL from 'sql.js/dist/sql-wasm.wasm?url';
 import initSqlJs, { Database } from 'sql.js';
 
 import { GearItem, LockListItem, LockState, PlayerData, PlayerResource } from '../interfaces';
-import { progressionWarning, validatePlayerNumber } from './playerEdits';
+import {
+    MAX_VANILLA_EXP,
+    MAX_VANILLA_TALENT_POINTS,
+    levelForExperience,
+    progressionWarning,
+    validatePlayerNumber
+} from './playerEdits';
 
 interface LockItem {
     LockID: string;
@@ -77,7 +83,7 @@ export class SaveGameDB {
         const db = await this.#gameDB;
         const inventoryList = db.exec(`SELECT * FROM 'InventoryDynamic'`
             + ` WHERE CharacterID = 'Player0' AND`
-            + ` HolderID = 'ResourceInventory' OR HolderID = 'HealthPotionStorage'`
+            + ` (HolderID = 'ResourceInventory' OR HolderID = 'HealthPotionStorage')`
             + ` ORDER BY HolderID, SlotNumber`);
         return this.#mapSqlResults<PlayerResource>(inventoryList[0], ['SlotNumber', 'ItemID', 'Count', 'HolderID']);
     }
@@ -90,7 +96,8 @@ export class SaveGameDB {
             + ` SET Count = $count`
             + ` WHERE ItemID = $itemID`
             + ` AND HolderID = $holderID`
-            + ` AND SlotNumber = $slotNumber;`,
+            + ` AND SlotNumber = $slotNumber`
+            + ` AND CharacterID = 'Player0';`,
             {
                 $count: playerResource.Count,
                 $itemID: playerResource.ItemID,
@@ -104,9 +111,9 @@ export class SaveGameDB {
         const db = await this.#gameDB;
         const inventoryList = db.exec(`SELECT * FROM 'InventoryDynamic'`
             + ` WHERE CharacterID = 'Player0' AND`
-            + ` HolderID = 'SanctuaryWheel' AND`
+            + ` (HolderID = 'SanctuaryWheel' OR HolderID = 'HealthPotionStorage') AND`
             + ` ItemID IS NOT NULL`
-            + ` ORDER BY SlotNumber`);
+            + ` ORDER BY HolderID, SlotNumber`);
         return this.#mapSqlResults<PlayerResource>(inventoryList[0], ['SlotNumber', 'ItemID', 'Count', 'HolderID']);
     }
 
@@ -160,6 +167,10 @@ export class SaveGameDB {
         const levelData = db.exec(`SELECT DataValue FROM MiscDataDynamic WHERE DataOwner = 'ExperienceManager' AND DataName = 'LevelUpMult'`);
         const perkData = db.exec(`SELECT DataValue FROM MiscDataDynamic WHERE DataOwner = 'Player0' AND DataName = 'PerkPoints'`);
         const baseInvCap = db.exec(`SELECT DataValue FROM MiscDataDynamic WHERE DataOwner = 'Player0' AND DataName = 'BaseInventoryCapacity'`);
+        const galleonsData = db.exec(`
+            SELECT Count FROM InventoryDynamic
+            WHERE CharacterID = 'Player0' AND HolderID = 'ResourceInventory' AND ItemID = 'Knuts'
+        `);
 
         return {
             FirstName: safeExtract(firstNameData),
@@ -168,13 +179,14 @@ export class SaveGameDB {
             Exp: safeExtract(expData, '0'),
             Level: safeExtract(levelData, '0'),
             PerkPoints: safeExtract(perkData, '0'),
-            BaseInventoryCapacity: safeExtract(baseInvCap, '20')
+            BaseInventoryCapacity: safeExtract(baseInvCap, '20'),
+            Galleons: String(safeExtract(galleonsData, '0'))
         };
     }
 
     async modifyPlayerData(changes : Partial<PlayerData>) : Promise<void>
     {
-        const fields : Record<keyof PlayerData, [string, string]> = {
+        const fields : Partial<Record<keyof PlayerData, [string, string]>> = {
             FirstName: [ 'Player', 'PlayerFirstName' ],
             LastName: [ 'Player', 'PlayerLastName' ],
             House: [ 'Player', 'HouseID' ],
@@ -185,13 +197,36 @@ export class SaveGameDB {
         };
         const db = await this.#gameDB;
         const updates : [string, string, string][] = [];
+        const inventoryUpdates : [string][] = [];
         for(const key of Object.keys(changes) as (keyof PlayerData)[])
         {
+            if(key === 'Galleons')
+            {
+                const value = changes[key];
+                if(typeof value !== 'string')
+                {
+                    throw new Error('Galleons must be text.');
+                }
+                validatePlayerNumber(value, 'Galleons');
+                const rows = db.exec(`
+                    SELECT Count FROM InventoryDynamic
+                    WHERE CharacterID = 'Player0' AND HolderID = 'ResourceInventory' AND ItemID = 'Knuts'
+                `);
+                if(!rows[0] || rows[0].values.length !== 1)
+                {
+                    throw new Error('Galleons are missing or ambiguous in this save; no changes applied.');
+                }
+                if(value !== String(rows[0].values[0][0]))
+                {
+                    inventoryUpdates.push([ value ]);
+                }
+                continue;
+            }
             if(!Object.prototype.hasOwnProperty.call(fields, key))
             {
                 throw new Error('Unknown Player field.');
             }
-            const [ owner, name ] = fields[key];
+            const [ owner, name ] = fields[key]!;
             const value = changes[key];
             if(typeof value !== 'string')
             {
@@ -204,11 +239,51 @@ export class SaveGameDB {
             }
             if(value !== String(rows[0].values[0][0]))
             {
-                if([ 'Exp', 'PerkPoints', 'BaseInventoryCapacity' ].includes(key))
+                if(key === 'Exp')
+                {
+                    validatePlayerNumber(value, key, MAX_VANILLA_EXP);
+                    const currentExp = Number(rows[0].values[0][0]);
+                    const currentLevel = levelForExperience(currentExp);
+                    const newLevel = levelForExperience(Number(value));
+
+                    if(newLevel < currentLevel)
+                    {
+                        throw new Error('Experience edits cannot lower the player level. Reduce XP only within the current level.');
+                    }
+
+                    if(newLevel > currentLevel)
+                    {
+                        const perkRows = db.exec('SELECT COUNT(*) FROM PerkDynamic');
+                        const learnedPerks = Number(perkRows[0]?.values[0]?.[0] ?? 0);
+                        const talentSystemInitialized = learnedPerks > 0;
+
+                        if(!talentSystemInitialized)
+                        {
+                            throw new Error(
+                                'Experience level jumps are blocked until the save contains at least one learned talent. '
+                                + 'This prevents the known pre-Talent level-skip progression bug.'
+                            );
+                        }
+                    }
+                }
+                else if(key === 'PerkPoints')
+                {
+                    validatePlayerNumber(value, key, MAX_VANILLA_TALENT_POINTS);
+                    const perkRows = db.exec('SELECT COUNT(*) FROM PerkDynamic');
+                    const learnedPerks = Number(perkRows[0]?.values[0]?.[0] ?? 0);
+                    const unspentPoints = Number(value);
+                    if(learnedPerks + unspentPoints > MAX_VANILLA_TALENT_POINTS)
+                    {
+                        throw new Error(
+                            `Talent Points plus learned talents cannot exceed ${ MAX_VANILLA_TALENT_POINTS } in a vanilla save.`
+                        );
+                    }
+                }
+                else if(key === 'BaseInventoryCapacity')
                 {
                     validatePlayerNumber(value, key);
                 }
-                if([ 'Exp', 'PerkPoints', 'Level' ].includes(key))
+                else if(key === 'Level')
                 {
                     throw new Error(progressionWarning);
                 }
@@ -223,6 +298,13 @@ export class SaveGameDB {
             for(const values of updates)
             {
                 db.run('UPDATE MiscDataDynamic SET DataValue = ? WHERE DataOwner = ? AND DataName = ?', values);
+            }
+            for(const [ value ] of inventoryUpdates)
+            {
+                db.run(`
+                    UPDATE InventoryDynamic SET Count = ?
+                    WHERE CharacterID = 'Player0' AND HolderID = 'ResourceInventory' AND ItemID = 'Knuts'
+                `, [ value ]);
             }
             db.run('COMMIT');
         }
@@ -322,11 +404,49 @@ export class SaveGameDB {
     }
 
     async unlockRevelioPages(): Promise<void> {
-        throw new Error('Revelio Pages editing is disabled: safe unlock and revert semantics are not verified.');
+        const db = await this.#gameDB;
+        const rows = db.exec("SELECT COUNT(*) FROM CollectionDynamic WHERE ItemID GLOB 'LORE_*'");
+        const count = Number(rows[0]?.values[0]?.[0] ?? 0);
+        if(count === 0)
+        {
+            throw new Error('No Revelio lore rows were found in this save.');
+        }
+        db.run("UPDATE CollectionDynamic SET ItemState = 'Obtained' WHERE ItemID GLOB 'LORE_*'");
     }
 
     async unlockWandHandles(): Promise<void> {
-        throw new Error('Wand Handles editing is disabled: safe unlock and revert semantics are not verified.');
+        const db = await this.#gameDB;
+        const rows = db.exec("SELECT COUNT(DISTINCT ItemID) FROM CollectionDynamic WHERE CategoryID = 'WandStyle' AND ItemID IS NOT NULL");
+        const count = Number(rows[0]?.values[0]?.[0] ?? 0);
+        if(count === 0)
+        {
+            throw new Error('No WandStyle rows were found in this save.');
+        }
+
+        db.run('BEGIN TRANSACTION');
+        try
+        {
+            db.run("UPDATE CollectionDynamic SET ItemState = 'Obtained' WHERE CategoryID = 'WandStyle'");
+            db.run(`
+                INSERT OR IGNORE INTO LocksDynamic (LockID, ELockState)
+                SELECT DISTINCT ItemID, 0
+                FROM CollectionDynamic
+                WHERE CategoryID = 'WandStyle' AND ItemID IS NOT NULL
+            `);
+            db.run(`
+                UPDATE LocksDynamic SET ELockState = 0
+                WHERE LockID IN (
+                    SELECT DISTINCT ItemID FROM CollectionDynamic
+                    WHERE CategoryID = 'WandStyle' AND ItemID IS NOT NULL
+                )
+            `);
+            db.run('COMMIT');
+        }
+        catch(error)
+        {
+            db.run('ROLLBACK');
+            throw error;
+        }
     }
 
     async unlockTraits(): Promise<void> {
@@ -371,11 +491,43 @@ export class SaveGameDB {
     }
 
     async lockRevelioPages(): Promise<void> {
-        throw new Error('Revelio Pages editing is disabled: safe unlock and revert semantics are not verified.');
+        const db = await this.#gameDB;
+        const rows = db.exec("SELECT COUNT(*) FROM CollectionDynamic WHERE ItemID GLOB 'LORE_*'");
+        const count = Number(rows[0]?.values[0]?.[0] ?? 0);
+        if(count === 0)
+        {
+            throw new Error('No Revelio lore rows were found in this save.');
+        }
+        db.run("UPDATE CollectionDynamic SET ItemState = 'Unknown' WHERE ItemID GLOB 'LORE_*'");
     }
 
     async lockWandHandles(): Promise<void> {
-        throw new Error('Wand Handles editing is disabled: safe unlock and revert semantics are not verified.');
+        const db = await this.#gameDB;
+        const rows = db.exec("SELECT COUNT(DISTINCT ItemID) FROM CollectionDynamic WHERE CategoryID = 'WandStyle' AND ItemID IS NOT NULL");
+        const count = Number(rows[0]?.values[0]?.[0] ?? 0);
+        if(count === 0)
+        {
+            throw new Error('No WandStyle rows were found in this save.');
+        }
+
+        db.run('BEGIN TRANSACTION');
+        try
+        {
+            db.run("UPDATE CollectionDynamic SET ItemState = 'Unknown' WHERE CategoryID = 'WandStyle'");
+            db.run(`
+                DELETE FROM LocksDynamic
+                WHERE LockID IN (
+                    SELECT DISTINCT ItemID FROM CollectionDynamic
+                    WHERE CategoryID = 'WandStyle' AND ItemID IS NOT NULL
+                )
+            `);
+            db.run('COMMIT');
+        }
+        catch(error)
+        {
+            db.run('ROLLBACK');
+            throw error;
+        }
     }
 
     async lockTraits(): Promise<void> {

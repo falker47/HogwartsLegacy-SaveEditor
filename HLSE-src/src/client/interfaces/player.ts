@@ -15,5 +15,6 @@ export interface PlayerData
     Level : string;
     PerkPoints : string;
     BaseInventoryCapacity : string;
+    Galleons : string;
 }
 
