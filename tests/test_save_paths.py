@@ -1,6 +1,7 @@
 """WGS containment and unchanged loose-save discovery, using synthetic folders."""
 
 import base64
+from concurrent.futures import Future
 import importlib.util
 import os
 from pathlib import Path
@@ -12,6 +13,15 @@ import pytest
 
 from src.editor import EditorApi
 from src.save_paths import find_hogwarts_wgs, is_wgs_path, require_loose_save_path
+from src.save_browser import SaveBrowser
+from tests.test_save_browser import character, player
+
+
+class ImmediateExecutor:
+    def submit(self, fn, *args):
+        future = Future()
+        future.set_result(fn(*args))
+        return future
 
 
 @pytest.fixture
@@ -33,7 +43,7 @@ def wgs(tmp_path):
 def app(monkeypatch):
     # Import the actual App methods without GUI dependencies or constructing Tk.
     monkeypatch.setitem(sys.modules, "customtkinter", SimpleNamespace(
-        CTk=object, CTkButton=Mock(return_value=Mock()),
+        CTk=object, CTkButton=Mock(return_value=Mock()), CTkFrame=Mock(side_effect=lambda *a, **k: Mock()),
         CTkLabel=Mock(return_value=Mock()), CTkFont=Mock(return_value=Mock())))
     monkeypatch.setitem(sys.modules, "tkinterdnd2", SimpleNamespace(TkinterDnD=SimpleNamespace(Tk=object)))
     spec = importlib.util.spec_from_file_location("src._paths_test_app", Path(__file__).parents[1] / "src/app.py")
@@ -46,6 +56,18 @@ def app(monkeypatch):
     instance.selected_button = None
     instance.config = {}
     instance.is_working = False
+    instance.save_browser = SaveBrowser()
+    instance._browser_executor = ImmediateExecutor()
+    instance._browser_future = None
+    instance._browser_generation = 0
+    instance._browser_directory = None
+    instance._browser_poll_id = None
+    instance._save_entries = {}
+    instance.save_files = []
+    instance.profile_menu = Mock()
+    instance.selected_profile = None
+    instance.location_locale = 'en'
+    instance.catalog_label = Mock()
     instance.path_label = Mock()
     instance._log = Mock()
     instance._refresh_save_list = Mock()
@@ -109,7 +131,8 @@ def test_steam_discovery_uses_newest_save_not_folder_timestamp_and_reports_wgs(a
         os.utime(directory, (folder_timestamp, folder_timestamp))
     assert instance._detect_save_directory()
     assert instance.save_directory == (base / "456").resolve()
-    assert instance.backup_dir.is_dir()
+    assert instance.backup_dir == (base / '456' / 'Backups').resolve()
+    assert not instance.backup_dir.exists()  # listing must be read-only
     instance._refresh_save_list.assert_called_once()
     instance.path_label.configure.assert_called_with(
         text=f"Auto-detected: {(base / '456').resolve()}"
@@ -157,8 +180,9 @@ def test_ordinary_browse_and_refresh_keep_sav_filter(app, tmp_path, monkeypatch)
     instance, module = app
     ordinary = tmp_path / "ordinary"
     ordinary.mkdir()
-    for name in ["HL-00-00.sav", "other.sav", "payload", "container.1"]:
+    for name in ["HL-00-00.sav", "other.sav", "payload", "container.1", "SaveGameList.sav", "SavedUserOptions.sav"]:
         (ordinary / name).write_bytes(b"synthetic")
+    (ordinary / 'renamed.sav').write_bytes(player())
     monkeypatch.setattr(module.filedialog, "askdirectory", lambda **_: str(ordinary))
     instance._browse_save_directory()
     assert instance.save_directory == ordinary
@@ -166,7 +190,151 @@ def test_ordinary_browse_and_refresh_keep_sav_filter(app, tmp_path, monkeypatch)
     assert instance.config["auto_detect_saves"] is False
     instance._save_config.assert_called_once()
     module.App._refresh_save_list(instance)
-    assert {p.name for p, _ in instance.save_files} == {"HL-00-00.sav", "other.sav"}
+    assert {e.filename for e in instance.save_files} == {"HL-00-00.sav", "renamed.sav"}
+
+
+def test_card_selection_uses_original_path_and_refresh_retains_it(app, tmp_path):
+    instance, module = app
+    original = tmp_path / 'renamed.sav'
+    original.write_bytes(player(stem='HL-02-10', kind='AUTO'))
+    instance.save_directory = tmp_path
+    module.App._refresh_save_list(instance)
+    card = instance._create_save_card(instance.save_files[0])
+    handler = next(call.args[1] for call in card.bind.call_args_list if call.args[0] == '<Button-1>')
+    handler(None)
+    assert instance.current_save_file == original
+    module.App._refresh_save_list(instance)
+    assert instance.current_save_file == original
+
+
+def test_profile_filter_has_latest_profile_default_and_all_option(app, tmp_path):
+    instance, module = app
+    for name in ['HL-02-04.sav', 'HL-03-04.sav']:
+        (tmp_path / name).write_bytes(player())
+    instance.save_directory = tmp_path
+    module.App._refresh_save_list(instance)
+    assert instance.selected_profile == 'Profile 2'
+    instance._on_profile_changed('Profile 3')
+    assert [e.filename for e in instance.visible_save_files] == ['HL-03-04.sav']
+    instance._on_profile_changed('All profiles')
+    assert len(instance.visible_save_files) == 2
+
+
+def test_named_profiles_keep_ids_selection_and_paths_across_name_changes(app, tmp_path):
+    instance, module = app
+    for profile in (2, 3):
+        (tmp_path / f'HL-0{profile}-04.sav').write_bytes(player(
+            profile=profile, character_info=character('Same Example', profile=profile)))
+    instance.save_directory = tmp_path
+    module.App._refresh_save_list(instance)
+    instance.profile_menu.configure.assert_called_with(values=[
+        'All profiles', 'Profile 2 — Same Example', 'Profile 3 — Same Example'])
+    instance._on_profile_changed('Profile 3 — Same Example')
+    selected = tmp_path / 'HL-03-04.sav'
+    instance.current_save_file = selected
+    selected.write_bytes(player(profile=3, character_info=character('New Example', profile=3)))
+    module.App._refresh_save_list(instance)
+    assert instance.selected_profile == 'Profile 3'
+    instance.profile_menu.set.assert_called_with('Profile 3 — New Example')
+    assert [e.path for e in instance.visible_save_files] == [selected]
+    assert instance.current_save_file == selected
+    selected.write_bytes(player(profile=3))
+    module.App._refresh_save_list(instance)
+    instance.profile_menu.set.assert_called_with('Profile 3')
+    assert instance.current_save_file == selected
+    instance._on_profile_changed('All profiles')
+    assert len(instance.visible_save_files) == 2
+
+
+def test_late_worker_result_cannot_replace_new_folder(app, tmp_path):
+    instance, module = app
+    first = tmp_path / 'first'
+    second = tmp_path / 'second'
+    first.mkdir()
+    second.mkdir()
+    (first / 'HL-02-04.sav').write_bytes(player())
+    old_result = SaveBrowser().discover(first)
+    stale = Future()
+    stale.set_result(old_result)
+    instance.save_directory = second
+    instance._browser_generation = 2
+    instance._poll_save_catalog(stale, 1, first)
+    assert instance.save_files == []
+
+
+def test_pending_refresh_folder_switch_ignores_old_result_and_preserves_no_old_selection(app, tmp_path):
+    instance, module = app
+    first = tmp_path / 'first'
+    second = tmp_path / 'second'
+    first.mkdir()
+    second.mkdir()
+    original = first / 'HL-02-04.sav'
+    original.write_bytes(player())
+    instance.save_directory = first
+    module.App._refresh_save_list(instance)
+    instance.current_save_file = original
+    pending = Future()
+    pending.set_running_or_notify_cancel()
+    instance._browser_executor = SimpleNamespace(submit=lambda *args: pending)
+    instance.after = Mock(return_value='pending-poll')
+    instance.after_cancel = Mock()
+    module.App._refresh_save_list(instance)
+    old_generation = instance._browser_generation
+    instance.save_directory = second
+    module.App._refresh_save_list(instance)
+    assert instance.current_save_file is None
+    assert instance.save_files == []
+    pending.set_result(SaveBrowser().discover(first))
+    instance._poll_save_catalog(pending, old_generation, first)
+    assert instance.save_files == []
+
+
+def test_edit_worker_pins_source_and_backup_folder_before_selection_changes(app, tmp_path, monkeypatch):
+    instance, module = app
+    original = tmp_path / 'HL-02-04.sav'
+    original.write_bytes(b'original sentinel')
+    other = tmp_path / 'HL-02-10.sav'
+    other.write_bytes(b'other sentinel')
+    backups = tmp_path / 'Backups'
+    instance.current_save_file = original
+    instance.backup_dir = backups
+    instance.temp_dir = tmp_path / 'temp'
+    instance.temp_dir.mkdir()
+    instance.app_dir = tmp_path
+    instance.hlsaves_exe = tmp_path / 'hlsaves.exe'
+    instance.hlsaves_exe.write_bytes(b'synthetic executable sentinel')
+    instance.hlsge_html = tmp_path / 'editor.html'
+    instance._show_progress = Mock()
+    instance._hide_progress = Mock()
+    instance.winfo_screenwidth = lambda: 1200
+    instance.winfo_screenheight = lambda: 800
+    targets = []
+    def thread(*, target, daemon):
+        targets.append(target)
+        return SimpleNamespace(start=lambda: None)
+    monkeypatch.setattr(module.threading, 'Thread', thread)
+    def decompress(args, **kwargs):
+        assert Path(args[2]).read_bytes() == b'original sentinel'
+        Path(args[3]).write_bytes(b'decompressed sentinel')
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(module.subprocess, 'run', decompress)
+    monkeypatch.setitem(sys.modules, 'webview', SimpleNamespace())
+    launches = []
+    def process(*, target, args):
+        launches.append(args)
+        return SimpleNamespace(start=lambda: None)
+    monkeypatch.setattr(module.multiprocessing, 'Process', process)
+    instance._extract_and_edit()
+    instance.current_save_file = other
+    instance.backup_dir = tmp_path / 'other-folder' / 'Backups'
+    targets[0]()
+    assert len(launches) == 1
+    assert launches[0][3] == str(original)
+    assert [p.read_bytes() for p in backups.iterdir()] == [b'original sentinel']
+    assert (instance.temp_dir / original.name).read_bytes() == b'original sentinel'
+    assert not (instance.temp_dir / other.name).exists()
+    assert original.read_bytes() == b'original sentinel'
+    assert other.read_bytes() == b'other sentinel'
 
 
 def test_force_auto_detect_switches_back_from_manual_mode_and_persists(app, tmp_path, monkeypatch):
