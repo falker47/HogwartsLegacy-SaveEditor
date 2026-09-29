@@ -1,17 +1,28 @@
-[size=5][b]Hogwarts Legacy Save Editor & Manager v1.0.5[/b][/size]
+[size=5][b]Hogwarts Legacy Save Editor & Manager v1.0.6[/b][/size]
 
 A Windows desktop workflow for locating, backing up and editing Hogwarts Legacy saves without manually moving files between a save manager and a browser editor.
 
-v1.0.5 is a maintenance release fixing raw DB1/DB2 exports and hlsavetool DB2 tail parsing. It includes the reproducible, hash-verified vendored hlsavetool package with its MIT license, patch and provenance, plus CI/release-flow and third-party provenance hardening.
+v1.0.6 is a recovery and compatibility release. It restores the Nexus-reported editing features with validated safeguards, adds an in-game-style save browser, and adds safe Game Pass/WGS export to ordinary editable copies.
+
+[line]
+
+[size=4][b]WHAT'S NEW IN v1.0.6[/b][/size]
+[list]
+[*][b]Progression safeguards:[/b] XP editing is restored with validated bounds and progression checks; Talent Points enforce the vanilla learned + unspent <= 36 invariant. Player Apply still writes only fields actually changed.
+[*][b]Collections restored:[/b] Wand Handles and Revelio page unlock/lock paths are restored after focused in-game validation, without speculative unrelated writes.
+[*][b]Resources restored:[/b] Galleons editing is available again and Wiggenweld/HealthPotionStorage is visible in Combat Resources.
+[*][b]New save browser:[/b] profiles show character names when safely available, plus manual/autosave type, playtime, verified location labels, internal game time and the technical filename.
+[*][b]Game Pass support:[/b] Export Game Pass Saves detects the known Hogwarts WGS area and copies recognized saves byte-for-byte to a normal folder for editing/migration. WGS/container metadata and Xbox cloud state are never modified.
+[/list]
 
 [line]
 
 [size=4][b]FEATURES[/b][/size]
 [list]
-[*][b]Save discovery:[/b] detects the standard Hogwarts Legacy save location, with manual override and persistent configuration.
-[*][b]Automatic backups:[/b] creates a backup before an edited save is written back.
+[*][b]Save discovery:[/b] automatic detection with manual override and persistent configuration.
+[*][b]Automatic backups:[/b] creates a backup before an edited ordinary save is written back.
 [*][b]Integrated editor:[/b] opens the HLSGE-derived editor inside PyWebView next to the manager.
-[*][b]Automatic write-back:[/b] full-save downloads are intercepted locally and recompressed through hlsaves; raw DB1/DB2 downloads export SQLite files separately without save recompression or write-back.
+[*][b]Automatic write-back:[/b] full-save downloads are recompressed through hlsaves; raw DB1/DB2 downloads export SQLite files separately.
 [*][b]Oodle discovery:[/b] checks common Steam/Epic installations first; a wider search or manual selection is available when needed.
 [/list]
 
@@ -20,24 +31,29 @@ v1.0.5 is a maintenance release fixing raw DB1/DB2 exports and hlsavetool DB2 ta
 [size=4][b]INSTALLATION[/b][/size]
 1. Download and extract the release archive.
 2. Run [b]HogwartsLegacy-SaveEditor.exe[/b].
-3. If the required [code]oo2core_9_win64.dll[/code] is available in a supported local game installation, the app will try to locate it.
-4. Otherwise use the explicit search/manual-selection flow.
+3. Let the app locate [code]oo2core_9_win64.dll[/code] from a supported local game installation, or use the explicit search/manual-selection flow.
 
 [b]The Oodle DLL is not bundled with this project.[/b]
 
-The current v1.0.5 application also contains a hash-pinned fallback download from the third-party new-world-tools/go-oodle GitHub release assets. This is not an official Epic Games distribution channel; using a DLL from your own installed game is preferable when available.
+The current v1.0.6 application also contains a hash-pinned fallback download from the third-party new-world-tools/go-oodle GitHub release assets. This is not an official Epic Games distribution channel; using a DLL from your own installed game is preferable when available.
 
 [line]
 
 [size=4][b]HOW TO USE[/b][/size]
 1. Open the manager.
-2. Select a save.
-3. Click [b]Edit Save File[/b].
+2. Select the detected save folder, browse manually, or use [b]Export Game Pass Saves[/b] for a Game Pass installation.
+3. Select the profile/save card and click [b]Edit Save File[/b].
 4. Make changes in the integrated editor.
 5. Use the editor's [b]Download[/b] action.
-6. The bridge recompresses the edited database into the original save path.
+
+For Game Pass, close the game before export and choose a destination outside WGS. Exported saves are editable/migration copies only: edits are not written back to WGS/Xbox cloud storage.
 
 Keep an independent backup before experimenting with save editors.
+
+[line]
+
+[size=4][b]VALIDATION[/b][/size]
+The v1.0.6 recovery paths received focused real-save/in-game validation, including XP/Talent safeguards, Wand Handles, Revelio pages, Galleons, Wiggenweld, Player Reset, validation rollback, save/reload, the new save browser, and the real Game Pass detection/export flow. CI also covers Python tests, editor tests/build and the Windows release smoke build.
 
 [line]
 

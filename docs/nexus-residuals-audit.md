@@ -1,7 +1,19 @@
 # Residual Nexus audit after v1.0.5
 
 Audit date: 2026-09-28. Base: `642755596cb6f2dff390f178d6db6874e6a89e4b`.
-This is a source review/containment pass, not release certification or an in-game PASS.
+This document began as the 28 September containment audit. The historical findings below
+are preserved as provenance, but several initial containment decisions were superseded
+by later recovery work and focused real-save/in-game validation before v1.0.6.
+
+## Superseding v1.0.6 status — 29 September 2026
+
+The initial containment state in this document is not the final release state. PR #16 restored and validated the affected functionality: XP editing with bounds/progression safeguards; Talent Points with the learned + unspent <= 36 invariant; Wand Handles using verified WandStyle/usage-lock semantics; Revelio lore pages using the verified LORE_* collection set; Galleons editing; and Wiggenweld/HealthPotionStorage visibility. Focused in-game checks and final save/reload passed.
+
+PR #17 replaced the technical save list with a read-only, profile-aware in-game-style browser using verified save metadata; manual UI acceptance passed and the supplied saves remained byte-identical.
+
+PR #18 added bounded, byte-exact Game Pass/WGS export to ordinary copies while preserving the prohibition on WGS/cloud write-back. Real Game Pass detection/export acceptance passed on 29 September 2026. The generic Nexus “no saves found” report remains a separate unverified case unless reproduced outside the validated Game Pass path.
+
+These later results supersede the earlier **disabled/read-only/unsupported** release decisions where they conflict, while the original analysis remains below as historical audit evidence.
 
 ## Baseline and preservation
 
