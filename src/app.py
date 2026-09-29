@@ -35,7 +35,7 @@ from .config import (
     MIN_HEIGHT, MIN_WIDTH, SELECTED_BORDER_COLOR, SELECTED_COLOR, TASKBAR_HEIGHT
 )
 from .editor import launch_editor_process
-from .save_browser import SaveBrowser, SaveEntry, format_entry
+from .save_browser import SaveBrowser, SaveEntry, format_entry, profile_labels
 from .save_paths import WGS_LIMITATION, find_hogwarts_wgs, require_loose_save_path
 
 
@@ -91,6 +91,7 @@ class App(BaseWindow):
         self._browser_directory = None
         self._browser_poll_id = None
         self.selected_profile = None
+        self._profile_labels = {'All profiles': 'All profiles'}
         self.location_locale = 'en'
         self.current_save_file: Optional[Path] = None
         self.current_decomp_file: Optional[Path] = None
@@ -677,13 +678,12 @@ class App(BaseWindow):
             return
         self.save_files = list(catalog.entries)
         self._save_entries = {e.path: e for e in self.save_files}
-        profiles = sorted({e.slot for e in self.save_files if e.slot is not None})
-        values = ['All profiles'] + [f'Profile {slot}' for slot in profiles]
-        if self.selected_profile not in values:
+        self._profile_labels = profile_labels(self.save_files)
+        if self.selected_profile not in self._profile_labels:
             latest_slot = self.save_files[0].slot if self.save_files else None
             self.selected_profile = f'Profile {latest_slot}' if latest_slot is not None else 'All profiles'
-        self.profile_menu.configure(values=values)
-        self.profile_menu.set(self.selected_profile)
+        self.profile_menu.configure(values=list(self._profile_labels.values()))
+        self.profile_menu.set(self._profile_labels[self.selected_profile])
         self._render_save_cards()
         self._log(f'🔄 Found {len(self.save_files)} player save(s).')
         for filename, reason in catalog.excluded:
@@ -692,7 +692,7 @@ class App(BaseWindow):
             self._log(f'⚠️ {warning}')
 
     def _on_profile_changed(self, value):
-        self.selected_profile = value
+        self.selected_profile = next(key for key, label in self._profile_labels.items() if label == value)
         self._render_save_cards()
 
     def _on_location_language_changed(self, value):

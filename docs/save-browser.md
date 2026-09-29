@@ -5,6 +5,9 @@ per-character scope of the game's Load Game screen. The initial profile is the
 one with the newest internal save timestamp; **All profiles** exposes every
 discovered player save. Refresh preserves the chosen profile and selected path
 when they are still present. Profile numbers retain the game's filename numbers.
+Choices include the character name when available (`Profile N — <name>`).
+The selection key remains `Profile N`, so duplicate names and later name changes
+cannot change the selected profile or source path. A missing name leaves `Profile N`.
 
 Cards show save kind, whole hours played, location, game time, then the technical
 filename. Selecting a card exposes the stored UTC timestamp, filesystem modified
@@ -48,7 +51,7 @@ all game timestamps. The info panel names that offset and shows the canonical
 UTC value separately. This is an observed UI convention, not a claim about the
 game's code or every game/platform version.
 
-The four verified location mappings are:
+The six verified location mappings are:
 
 | CurrentMap | English | Italiano |
 | --- | --- | --- |
@@ -56,6 +59,8 @@ The four verified location mappings are:
 | `RegionNameHelmsdale` | Cragcroftshire | Cragcroftshire |
 | `Hamlet_Aranshire` | Aranshire | Aranshire |
 | `RegionNameSouthCoast` | Clagmar Coast | Clagmar Coast |
+| `RegionNameHogwartsArea` | North Hogwarts Region | Regione Nord di Hogwarts |
+| `CombatChallenge_DigitalDeluxe_HN_AU` | Dark Arts Battle Arena | Arena di combattimento delle Arti Oscure |
 
 The Load Game observations establish these pairs; the localization key identities
 are independently corroborated by the corresponding entries in the
@@ -64,6 +69,58 @@ That project's translated prose is not bundled. New mappings require comparable
 evidence; identifiers are never prettified into invented labels. Game installation
 resources are packaged separately; the browser neither extracts nor distributes
 those assets and does not require a game install to list saves.
+
+The additional Profile 3 comparison on 2026-09-29 established the last two
+Italian labels exactly. Read-only parsing found `RegionNameHogwartsArea` in
+`HL-03-00.sav`, and `CombatChallenge_DigitalDeluxe_HN_AU` in `HL-03-11.sav`,
+`HL-03-10.sav`, `HL-03-14.sav`, `HL-03-13.sav`, and `HL-03-12.sav`. Each agrees
+with its used manifest entry. The English region label is corroborated by the
+[Gamer Guides region entry](https://www.gamerguides.com/hogwarts-legacy/database/locations/regions/north-hogwarts-region);
+the arena label is corroborated by the publisher's
+[Dark Arts Pack listing](https://store.steampowered.com/app/1880832?l=english).
+The community localization source also contains both exact keys; its Dutch
+translations are not used as evidence of English wording.
+
+The manual comparison now passes profile separation, save type, whole hours,
+timestamps and ordering. The six Profile 3 entries format at the observed
+current UTC+02:00 offset as 27 Jan 2026, 19:37 (manual, North Hogwarts Region),
+then 19:35, 19:31, 19:27, 19:22 and 19:16 (autosaves, Dark Arts Battle Arena).
+All six show 46h. Other unknown IDs still use the explicit unavailable label.
+
+## Character-name evidence and selection
+
+The format inspection enumerated tagged fields instead of searching database
+bytes or assuming a name property. Both sources contain an uncompressed
+`CharacterSaveGameInfo` struct:
+
+- Ordinary saves: top-level `CharacterSaveGameInfo`, after the database/minimap
+  arrays and before `DirectoryEntry` in the observed layout.
+- `SaveGameList.sav`: `Info.CharacterList`, a struct array keyed by each entry's
+  `CharacterID`. `LastLoadedCharacter` and `CurrentCharacter` also exist, but
+  describe a single character and are not suitable for labeling every profile.
+
+In all 25 local player saves, the `CharacterName` FString, `CharacterID` and
+`bIsUsed` agree with the corresponding used manifest character. The observed
+`CharacterNameBytes` also corroborates the name; the reader does not need to
+interpret that redundant array or `CurrentFormat`. No personal name values are
+stored in this document or the synthetic tests. The active local profiles have
+the same name, so the technical IDs remain essential for distinguishing them.
+
+The implementation reads only the ordinary save's `CharacterID`, `CharacterName`
+and `bIsUsed` using the existing bounded reader, then caches them with the other
+metadata. It requires a used entry, matching character/directory/profile IDs,
+and a nonblank printable name of at most 256 characters. UTF-8 and UTF-16
+FStrings are supported. Invalid optional name metadata is skipped without
+discarding a valid `DirectoryEntry`. The newest usable name in each profile's
+ordered saves labels its choice, independently of the manifest's location/time
+precedence. Names are deliberately not recovered from a manifest alone when
+the ordinary file's character identity cannot be verified.
+
+This adds no database decompression, database queries, subprocesses, extra file
+opens or persistent personal-data cache. `MiscDataDynamic` contains
+`PlayerFirstName` / `PlayerLastName` used by the embedded editor, but that heavier
+path is unnecessary for browser labels. An editor that changes only database
+names may leave the menu metadata stale; the browser shows the saved menu name.
 
 An apparent newer filesystem autosave missing from the reference Load Game image
 was resolved by the capture sequence: the game image preceded the newer autosave,

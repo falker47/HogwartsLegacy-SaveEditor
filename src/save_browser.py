@@ -15,13 +15,17 @@ PLAYER_NAME = re.compile(r'HL-(\d+)-(\d+)\.sav', re.IGNORECASE)
 SYSTEM_NAMES = {'savegamelist.sav', 'saveduseroptions.sav'}
 EPOCH = datetime(1, 1, 1, tzinfo=timezone.utc)
 
-# Only labels corroborated by Load Game observations; see docs/save-browser.md.
+# Labels corroborated by Load Game and published sources; see docs/save-browser.md.
 # Unknown keys remain explicitly unavailable, rather than guessed title casing.
 LOCATION_LABELS = {
     'en': {'Overland': 'The Highlands', 'RegionNameHelmsdale': 'Cragcroftshire',
-           'Hamlet_Aranshire': 'Aranshire', 'RegionNameSouthCoast': 'Clagmar Coast'},
+           'Hamlet_Aranshire': 'Aranshire', 'RegionNameSouthCoast': 'Clagmar Coast',
+           'RegionNameHogwartsArea': 'North Hogwarts Region',
+           'CombatChallenge_DigitalDeluxe_HN_AU': 'Dark Arts Battle Arena'},
     'it': {'Overland': 'Le Highlands', 'RegionNameHelmsdale': 'Cragcroftshire',
-           'Hamlet_Aranshire': 'Aranshire', 'RegionNameSouthCoast': 'Clagmar Coast'},
+           'Hamlet_Aranshire': 'Aranshire', 'RegionNameSouthCoast': 'Clagmar Coast',
+           'RegionNameHogwartsArea': 'Regione Nord di Hogwarts',
+           'CombatChallenge_DigitalDeluxe_HN_AU': 'Arena di combattimento delle Arti Oscure'},
 }
 
 
@@ -39,6 +43,7 @@ class SaveEntry:
     size: int
     metadata_source: str
     metadata_status: str
+    character_name: str | None = None
 
     @property
     def filename(self):
@@ -70,15 +75,17 @@ def _timestamp(ticks):
         return None
 
 
-def _entry(path, stat, metadata, source, status):
+def _entry(path, stat, metadata, source, status, character=None):
     match = PLAYER_NAME.fullmatch(path.name)
     slot, index = (int(match[1]), int(match[2])) if match else (None, None)
     # Verified USER slots 00..09 and AUTO slots 10..14. Do not infer unknown slots.
     kind = 'manual' if index is not None and index <= 9 else 'auto' if index is not None and 10 <= index <= 14 else 'unknown'
     kind = {'ESaveType::USER': 'manual', 'ESaveType::AUTO': 'auto'}.get(metadata.get('SaveType'), kind)
-    character = metadata.get('CharacterID')
-    if slot is None and type(character) is int and character >= 0:
-        slot = character
+    character_id = metadata.get('CharacterID')
+    if slot is None and type(character_id) is int and character_id >= 0:
+        slot = character_id
+    character_name = (character.name if character and character.profile_id == slot
+                      and character_id == slot else None)
     stamp = _timestamp(metadata.get('SaveTime'))
     game_ticks = metadata.get('GameTime')
     playtime = game_ticks / 10_000_000 if type(game_ticks) is int and game_ticks >= 0 else None
@@ -86,7 +93,7 @@ def _entry(path, stat, metadata, source, status):
     if status == 'complete' and (stamp is None or playtime is None or location is None or kind == 'unknown'):
         status = 'partial'
     return SaveEntry(path, True, kind, slot, index if kind == 'auto' else None,
-                     stamp, playtime, location, stat.st_mtime, stat.st_size, source, status)
+                     stamp, playtime, location, stat.st_mtime, stat.st_size, source, status, character_name)
 
 
 def sort_entries(entries):
@@ -96,6 +103,20 @@ def sort_entries(entries):
         -(e.internal_timestamp.timestamp() if e.internal_timestamp else e.filesystem_mtime),
         e.filename.casefold(), e.filename, str(e.path),
     ))
+
+
+def profile_labels(entries):
+    """Stable technical keys with the newest usable name for each profile."""
+    names = {}
+    for entry in sort_entries(entries):
+        if entry.slot is not None:
+            if not names.get(entry.slot):
+                names[entry.slot] = entry.character_name
+    labels = {'All profiles': 'All profiles'}
+    for slot, name in sorted(names.items()):
+        key = f'Profile {slot}'
+        labels[key] = f'{key} — {name}' if name else key
+    return labels
 
 
 class SaveBrowser:
@@ -172,7 +193,8 @@ class SaveBrowser:
                         status = 'file metadata unavailable'
             elif own and manifest:
                 status = 'not indexed'
-            entries.append(_entry(path, stat, metadata, source, status))
+            entries.append(_entry(path, stat, metadata, source, status,
+                                  document.character if document else None))
         self._cache = {p: v for p, v in self._cache.items() if p in paths}
         return SaveCatalog(tuple(sort_entries(entries)), tuple(excluded), tuple(warnings))
 

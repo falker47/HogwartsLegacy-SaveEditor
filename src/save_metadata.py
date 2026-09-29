@@ -85,10 +85,32 @@ class Reader:
 
 
 @dataclass(frozen=True)
+class CharacterMetadata:
+    profile_id: int
+    name: str
+
+
+@dataclass(frozen=True)
 class MetadataDocument:
     player: bool
     directory: dict | None = None
     index: dict | None = None
+    character: CharacterMetadata | None = None
+
+
+def _character(reader):
+    profile, name, used = None, None, False
+    for key, kind, subtype, value in reader.tags():
+        if key == 'CharacterID' and kind == 'IntProperty':
+            profile = value.number('i')
+        elif key == 'CharacterName' and kind == 'StrProperty':
+            name = value.string()
+        elif key == 'bIsUsed' and kind == 'BoolProperty':
+            used = subtype == 1
+    if (used and profile is not None and profile >= 0 and name is not None
+            and 0 < len(name) <= 256 and name.isprintable() and name.strip()):
+        return CharacterMetadata(profile, name.strip())
+    return None
 
 
 def _directory(reader):
@@ -161,9 +183,17 @@ def read_metadata(path: Path) -> MetadataDocument:
         player = save_class == '/Script/PersistentData.PersistentGameData'
         try:
             if player:
+                character = None
                 for name, kind, subtype, value in reader.tags():
+                    if name == 'CharacterSaveGameInfo' and kind == 'StructProperty' and subtype == 'CharacterSaveGameInfo':
+                        try:
+                            character = _character(value)
+                        except MetadataError:
+                            # Names are optional; the enclosing tag still lets us
+                            # seek to the following DirectoryEntry safely.
+                            character = None
                     if name == 'DirectoryEntry' and kind == 'StructProperty' and subtype == 'SaveDirectoryEntry':
-                        return MetadataDocument(player=True, directory=_directory(value))
+                        return MetadataDocument(player=True, directory=_directory(value), character=character)
                 raise MetadataError('Missing DirectoryEntry')
             if save_class == '/Script/PersistentData.PersistentGameDataList':
                 for name, kind, subtype, value in reader.tags():

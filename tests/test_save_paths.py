@@ -14,7 +14,7 @@ import pytest
 from src.editor import EditorApi
 from src.save_paths import find_hogwarts_wgs, is_wgs_path, require_loose_save_path
 from src.save_browser import SaveBrowser
-from tests.test_save_browser import player
+from tests.test_save_browser import character, player
 
 
 class ImmediateExecutor:
@@ -216,6 +216,32 @@ def test_profile_filter_has_latest_profile_default_and_all_option(app, tmp_path)
     assert instance.selected_profile == 'Profile 2'
     instance._on_profile_changed('Profile 3')
     assert [e.filename for e in instance.visible_save_files] == ['HL-03-04.sav']
+    instance._on_profile_changed('All profiles')
+    assert len(instance.visible_save_files) == 2
+
+
+def test_named_profiles_keep_ids_selection_and_paths_across_name_changes(app, tmp_path):
+    instance, module = app
+    for profile in (2, 3):
+        (tmp_path / f'HL-0{profile}-04.sav').write_bytes(player(
+            profile=profile, character_info=character('Same Example', profile=profile)))
+    instance.save_directory = tmp_path
+    module.App._refresh_save_list(instance)
+    instance.profile_menu.configure.assert_called_with(values=[
+        'All profiles', 'Profile 2 — Same Example', 'Profile 3 — Same Example'])
+    instance._on_profile_changed('Profile 3 — Same Example')
+    selected = tmp_path / 'HL-03-04.sav'
+    instance.current_save_file = selected
+    selected.write_bytes(player(profile=3, character_info=character('New Example', profile=3)))
+    module.App._refresh_save_list(instance)
+    assert instance.selected_profile == 'Profile 3'
+    instance.profile_menu.set.assert_called_with('Profile 3 — New Example')
+    assert [e.path for e in instance.visible_save_files] == [selected]
+    assert instance.current_save_file == selected
+    selected.write_bytes(player(profile=3))
+    module.App._refresh_save_list(instance)
+    instance.profile_menu.set.assert_called_with('Profile 3')
+    assert instance.current_save_file == selected
     instance._on_profile_changed('All profiles')
     assert len(instance.visible_save_files) == 2
 

@@ -34,10 +34,10 @@ def ticks(value):
 STAMP = datetime(2025, 2, 3, 18, 40, tzinfo=timezone.utc)
 
 
-def directory(stem='HL-02-04', kind='USER', stamp=STAMP, location='RegionNameHelmsdale', used=True):
+def directory(stem='HL-02-04', kind='USER', stamp=STAMP, location='RegionNameHelmsdale', used=True, profile=2):
     return properties(
         prop('FilenameSlot', 'StrProperty', string(stem)),
-        prop('CharacterID', 'IntProperty', struct.pack('<i', 2)),
+        prop('CharacterID', 'IntProperty', struct.pack('<i', profile)),
         prop('SaveType', 'EnumProperty', string('ESaveType::' + kind), string('ESaveType')),
         prop('bIsUsed', 'BoolProperty', extra=bytes([used])),
         structure('GameTime', 'DateTime', struct.pack('<q', 46 * 3600 * 10_000_000)),
@@ -53,12 +53,23 @@ def gvas(payload, manifest=False):
             + string('/Script/PersistentData.' + cls) + payload + bytes(4))
 
 
-def player(**kwargs):
+def character(name='Ada Example', profile=2, used=True, wide=False):
+    encoded = (struct.pack('<i', -(len(name.encode('utf-16-le')) // 2 + 1))
+               + name.encode('utf-16-le') + b'\0\0') if wide else string(name)
+    return structure('CharacterSaveGameInfo', 'CharacterSaveGameInfo', properties(
+        prop('CharacterID', 'IntProperty', struct.pack('<i', profile)),
+        prop('CharacterName', 'StrProperty', encoded),
+        prop('bIsUsed', 'BoolProperty', extra=bytes([used])),
+    ))
+
+
+def player(character_info=b'', **kwargs):
     # A compressed payload deliberately contains decoy property text. The reader
     # must skip it by length, never scan for a field name in database bytes.
     decoy = b'not-a-database' + directory(stem='HL-99-99')
     return gvas(properties(
         prop('RawDatabaseImage', 'ArrayProperty', struct.pack('<i', len(decoy)) + decoy, string('ByteProperty')),
+        character_info,
         structure('DirectoryEntry', 'SaveDirectoryEntry', directory(**kwargs)),
     ))
 
@@ -189,6 +200,69 @@ def test_unknown_location_and_missing_metadata_are_labelled(tmp_path):
     assert fallback.summary == 'Playtime unavailable | Location unavailable'
     assert fallback.date.startswith('File modified: ')
     assert 'fallback' in fallback.details.lower()
+
+
+@pytest.mark.parametrize('location,english,italian', [
+    ('RegionNameHogwartsArea', 'North Hogwarts Region', 'Regione Nord di Hogwarts'),
+    ('CombatChallenge_DigitalDeluxe_HN_AU', 'Dark Arts Battle Arena',
+     'Arena di combattimento delle Arti Oscure'),
+])
+@pytest.mark.parametrize('indexed', [False, True])
+def test_verified_profile_three_locations_from_file_or_index(tmp_path, location, english, italian, indexed):
+    write(tmp_path, 'HL-03-00.sav', player(stem='HL-03-00', profile=3, location=location))
+    if indexed:
+        write(tmp_path, 'SaveGameList.sav', manifest(directory(stem='HL-03-00', profile=3, location=location)))
+    entry = browser.SaveBrowser().discover(tmp_path).entries[0]
+    assert browser.format_entry(entry, locale='en').summary == f'46h | {english}'
+    assert browser.format_entry(entry, locale='it').summary == f'46h | {italian}'
+    assert browser.format_entry(entry, locale='unsupported').summary == f'46h | {english}'
+
+
+@pytest.mark.parametrize('wide', [False, True])
+def test_character_name_from_bounded_metadata_survives_cache_and_refresh(tmp_path, wide):
+    path = write(tmp_path, 'HL-02-04.sav', player(character_info=character('Zoë Example', wide=wide)))
+    service = browser.SaveBrowser()
+    for _ in range(2):
+        entry = service.discover(tmp_path).entries[0]
+        assert entry.character_name == 'Zoë Example'
+        assert browser.profile_labels([entry]) == {'All profiles': 'All profiles', 'Profile 2': 'Profile 2 — Zoë Example'}
+    path.write_bytes(player(character_info=character('Renamed Example')))
+    assert service.discover(tmp_path).entries[0].character_name == 'Renamed Example'
+
+
+@pytest.mark.parametrize('info', [
+    b'', character(''), character('   '), character('Bad\nName'), character('x' * 257),
+    character(profile=3), character(used=False),
+    structure('CharacterSaveGameInfo', 'CharacterSaveGameInfo', b'broken'),
+])
+def test_unusable_character_name_does_not_lose_save_metadata(tmp_path, info):
+    write(tmp_path, 'HL-02-04.sav', player(character_info=info))
+    entry = browser.SaveBrowser().discover(tmp_path).entries[0]
+    assert entry.character_name is None
+    assert entry.metadata_status == 'complete'
+    assert entry.location_id == 'RegionNameHelmsdale'
+    assert browser.profile_labels([entry])['Profile 2'] == 'Profile 2'
+
+
+def test_profile_name_uses_newest_named_save_and_never_database_decoys(tmp_path):
+    write(tmp_path, 'HL-02-04.sav', player(character_info=character('Old Example')))
+    write(tmp_path, 'HL-02-10.sav', player(stem='HL-02-10', kind='AUTO',
+          stamp=STAMP + timedelta(hours=1), character_info=character('New Example')))
+    decoy = character('Database Decoy', profile=3)
+    write(tmp_path, 'HL-03-00.sav', gvas(properties(
+        prop('RawDatabaseImage', 'ArrayProperty', struct.pack('<i', len(decoy)) + decoy, string('ByteProperty')),
+        structure('DirectoryEntry', 'SaveDirectoryEntry', directory(stem='HL-03-00', profile=3)),
+    )))
+    entries = browser.SaveBrowser().discover(tmp_path).entries
+    assert browser.profile_labels(reversed(entries)) == {
+        'All profiles': 'All profiles', 'Profile 2': 'Profile 2 — New Example', 'Profile 3': 'Profile 3'}
+
+
+def test_name_identity_matches_both_filename_and_directory(tmp_path):
+    write(tmp_path, 'HL-03-00.sav', player(character_info=character(profile=3)))
+    entry = browser.SaveBrowser().discover(tmp_path).entries[0]
+    assert entry.slot == 3
+    assert entry.character_name is None
 
 
 @pytest.mark.parametrize('data', [b'', b'GVAS', player()[:-30], b'GVAS' + bytes(100)])
