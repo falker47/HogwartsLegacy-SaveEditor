@@ -36,12 +36,10 @@ write rollback, concurrent target creation, source changes, links, cancellation,
 completion, diagnostics, and integration with current character/profile save cards.
 Existing Steam/Epic, PR #16 recovery, and PR #17 save-browser tests remain required.
 
-Real Game Pass user-flow validation: **MANUAL_NOT_EXECUTED**.
-No authorized real Game Pass fixture was supplied or inspected for this mission.
-Before leaving Draft, use an authorized installation to confirm detection, export,
-byte identity/source preservation, and exported-save metadata/editing. Any in-game
-migration/load check must be recorded separately and never reported as a pass based on
-synthetic tests. WGS/cloud write-back is outside scope.
+Real Game Pass user-flow validation: **PASS — 29 September 2026**.
+An authorized real Game Pass installation confirmed the detection/export flow works as
+intended after the automated/CI gate. This validates the supported safe-export path; it
+does not add or imply WGS/cloud write-back, which remains outside scope.
 
 The generic Nexus "no saves found" report is not claimed fixed without a reproducible
 case. If no ordinary saves or WGS root are detected, the UI explains that no supported
