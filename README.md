@@ -1,6 +1,6 @@
 # Hogwarts Legacy Save Editor & Manager
 
-![Banner](banner_rectangular.png)
+![Banner](banner_rectangular.webp)
 
 A Windows desktop manager that connects three pieces of the Hogwarts Legacy save-editing workflow: save discovery and backups, `hlsaves` compression/decompression, and the HLSGE web editor inside a local PyWebView window.
 
