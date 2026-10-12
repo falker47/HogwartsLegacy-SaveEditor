@@ -63,8 +63,13 @@ def invoke(root, request):
                     "mock-hlsaves", str(root), status)
     api.set_window(window)
     process = SimpleNamespace(returncode=request.get("returncode", 0), stderr="mock compression error")
+    def convert(args, **kwargs):
+        if process.returncode == 0:
+            data = Path(args[2]).read_bytes()
+            Path(args[3]).write_bytes(b'COMPRESSED' + data if args[1] == '-c' else data[10:])
+        return process
     with patch.dict(sys.modules, {"webview": SimpleNamespace(SAVE_DIALOG=30)}), \
-            patch("src.editor.subprocess.run", return_value=process) as run:
+            patch("src.editor.subprocess.run", side_effect=convert) as run:
         result = getattr(api, request["method"])(*request.get("args", []))
     return {"result": result, "subprocess": [call.args[0] for call in run.call_args_list],
             "status": [call.args for call in status.call_args_list],

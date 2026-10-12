@@ -237,10 +237,15 @@ for (const variant of ['external', 'fallback']) {
                 const call = h.calls[0];
                 assert.equal(call.method, 'save_edited_file');
                 assert.equal(call.args[0], Buffer.from(expected).toString('base64'));
-                assert.deepEqual(readFileSync(path.join(h.root, 'loaded.edited')), Buffer.from(expected));
-                assert.deepEqual(call.subprocess, [[
-                    'mock-hlsaves', '-c', path.join(h.root, 'loaded.edited'), path.join(h.root, 'original.sav')
-                ]]);
+                assert.deepEqual(call.subprocess.map(args => args[1]), returncode ? ['-c'] : ['-c', '-d']);
+                for (const args of call.subprocess) {
+                    assert.equal(args[0], 'mock-hlsaves');
+                    assert.notEqual(args[3], path.join(h.root, 'original.sav'));
+                }
+                assert.deepEqual(readFileSync(path.join(h.root, 'original.sav')), returncode
+                    ? Buffer.from('original sentinel: never overwrite')
+                    : Buffer.concat([Buffer.from('COMPRESSED'), Buffer.from(expected)]));
+                assert.ok(!Object.keys(h.inspect()).some(name => name.endsWith('.edited')));
                 assert.deepEqual(call.dialogs, []);
                 assert.equal(call.result.success, returncode === 0);
                 assert.equal(call.status[0][0], returncode ? 'error' : 'success');

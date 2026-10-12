@@ -153,8 +153,13 @@ def export_wgs_saves(wgs_root: Path, destination: Path) -> list[Path]:
                 identity = os.fstat(output.fileno())
                 created[target] = (identity.st_dev, identity.st_ino)
                 outputs.append(target)
-                output.write(data)
-    except Exception as exc:
+                if output.write(data) != len(data):
+                    raise OSError('Incomplete Game Pass export write')
+                output.flush()
+                os.fsync(output.fileno())
+            if hashlib.sha256(target.read_bytes()).hexdigest() != digest:
+                raise OSError('Game Pass export verification failed')
+    except BaseException as exc:
         cleanup_failed = []
         for target in outputs:
             try:
