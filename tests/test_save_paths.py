@@ -76,6 +76,8 @@ def app(monkeypatch):
     instance.save_list_frame = Mock()
     instance.save_list_frame.winfo_children.return_value = []
     monkeypatch.setattr(module.messagebox, "showwarning", Mock())
+    monkeypatch.setattr(module.messagebox, "showerror", Mock())
+    monkeypatch.setattr(module.messagebox, "showinfo", Mock())
     return instance, module
 
 
@@ -315,7 +317,7 @@ def test_edit_worker_pins_source_and_backup_folder_before_selection_changes(app,
     monkeypatch.setattr(module.threading, 'Thread', thread)
     def decompress(args, **kwargs):
         assert Path(args[2]).read_bytes() == b'original sentinel'
-        Path(args[3]).write_bytes(b'decompressed sentinel')
+        Path(args[3]).write_bytes(b'GVAS decompressed sentinel')
         return SimpleNamespace(returncode=0)
     monkeypatch.setattr(module.subprocess, 'run', decompress)
     monkeypatch.setitem(sys.modules, 'webview', SimpleNamespace())
@@ -331,8 +333,10 @@ def test_edit_worker_pins_source_and_backup_folder_before_selection_changes(app,
     assert len(launches) == 1
     assert launches[0][3] == str(original)
     assert [p.read_bytes() for p in backups.iterdir()] == [b'original sentinel']
-    assert (instance.temp_dir / original.name).read_bytes() == b'original sentinel'
-    assert not (instance.temp_dir / other.name).exists()
+    session_dir = Path(launches[0][1]).parent
+    assert (session_dir / original.name).read_bytes() == b'original sentinel'
+    assert not (session_dir / other.name).exists()
+    assert launches[0][-1] == str(session_dir / original.name)
     assert original.read_bytes() == b'original sentinel'
     assert other.read_bytes() == b'other sentinel'
 

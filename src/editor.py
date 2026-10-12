@@ -4,10 +4,15 @@ Handles the WebView-based save editor in a separate process.
 """
 
 import base64
+import hashlib
+import os
 import subprocess
+import tempfile
+import threading
 from pathlib import Path
 from typing import Callable, Optional
 from .save_paths import require_loose_save_path
+from .save_io import write_new_verified
 
 
 def get_editor_bridge_js(app_dir: str) -> str:
@@ -190,7 +195,8 @@ class EditorApi:
         original_save: str,
         hlsaves_path: str,
         app_dir: str,
-        status_callback: Optional[Callable[[str, str], None]] = None
+        status_callback: Optional[Callable[[str, str], None]] = None,
+        original_snapshot: Optional[str] = None
     ):
         self.file_path = file_path
         self.file_name = file_name
@@ -199,6 +205,11 @@ class EditorApi:
         self.app_dir = app_dir
         self.status_callback = status_callback
         self._window = None
+        self._save_lock = threading.Lock()
+        try:
+            self._source_digest = hashlib.sha256(Path(original_snapshot or original_save).read_bytes()).digest()
+        except OSError:
+            self._source_digest = None
 
     def set_window(self, window) -> None:
         """Set the WebView window reference for closing."""
@@ -207,7 +218,10 @@ class EditorApi:
     def _write_status(self, status: str, message: str = "") -> None:
         """Report status via callback if available."""
         if self.status_callback:
-            self.status_callback(status, message)
+            try:
+                self.status_callback(status, message)
+            except Exception as exc:
+                print(f'Could not report editor status: {exc}')
 
     def get_file_data(self) -> Optional[str]:
         """
@@ -259,22 +273,22 @@ class EditorApi:
             if destination.suffix.lower() != ".sqlite":
                 raise ValueError("Choose a filename ending in .sqlite")
 
-            try:
-                output = destination.open('xb')
-            except FileExistsError:
-                raise ValueError("Destination already exists; choose a new filename") from None
-            try:
-                with output:
-                    output.write(binary)
-            except Exception:
-                destination.unlink(missing_ok=True)
-                raise
+            write_new_verified(destination, binary)
             return {"success": True}
         except Exception as e:
             # Dialog/backend, decoding and I/O failures stay local to this export.
             return {"success": False, "error": str(e)}
 
     def save_edited_file(self, b64_data: str) -> dict:
+        """Allow only one publication transaction per WebView editor session."""
+        if not self._save_lock.acquire(blocking=False):
+            return {'success': False, 'error': 'A save is already in progress'}
+        try:
+            return self._save_edited_file(b64_data)
+        finally:
+            self._save_lock.release()
+
+    def _save_edited_file(self, b64_data: str) -> dict:
         """
         Save the edited file and recompress to original save location.
         Called from JavaScript when user clicks Download.
@@ -285,28 +299,56 @@ class EditorApi:
         Returns:
             Dictionary with 'success' boolean and optional 'error' message.
         """
+        published = False
+        expected_digest = self._source_digest
         try:
-            edited_path = Path(self.file_path).parent / f"{Path(self.file_name).stem}.edited"
-            require_loose_save_path(Path(self.original_save))
-            require_loose_save_path(edited_path)
+            original = Path(self.original_save)
+            require_loose_save_path(original)
+            require_loose_save_path(Path(self.file_path))
+            if not isinstance(b64_data, str):
+                raise ValueError('Invalid save payload')
+            binary = base64.b64decode(b64_data, validate=True)
+            if not binary.startswith(b'GVAS') or len(binary) <= 4:
+                raise ValueError('Invalid decompressed save payload')
+            if expected_digest is None or hashlib.sha256(original.read_bytes()).digest() != expected_digest:
+                raise ValueError('Original save changed or is unavailable; reopen it before saving')
 
-            binary = base64.b64decode(b64_data)
-            with open(edited_path, 'wb') as f:
-                f.write(binary)
-
-            result = subprocess.run(
-                [self.hlsaves_path, "-c", str(edited_path), self.original_save],
-                capture_output=True, text=True, cwd=self.app_dir
-            )
-
-            if result.returncode != 0:
-                self._write_status("error", result.stderr)
-                return {"success": False, "error": result.stderr}
+            # Keep the converter away from the original. Same-filesystem replace is
+            # the only publication step, after an exact decompression round trip.
+            with tempfile.TemporaryDirectory(prefix='.hl-edit-', dir=original.parent) as work:
+                edited_path = Path(work) / 'input.edited'
+                candidate = Path(work) / 'candidate.sav'
+                verified = Path(work) / 'verified.decomp'
+                write_new_verified(edited_path, binary)
+                for mode, source, target in (('-c', edited_path, candidate), ('-d', candidate, verified)):
+                    result = subprocess.run(
+                        [self.hlsaves_path, mode, str(source), str(target)],
+                        capture_output=True, text=True, cwd=self.app_dir
+                    )
+                    if result.returncode != 0:
+                        raise ValueError(result.stderr or 'Save conversion failed')
+                    if not target.is_file() or target.stat().st_size == 0:
+                        raise ValueError('Converter output is missing or empty')
+                if verified.read_bytes() != binary:
+                    raise ValueError('Recompressed save failed exact round-trip verification')
+                with candidate.open('r+b') as output:
+                    os.fsync(output.fileno())
+                candidate_digest = hashlib.sha256(candidate.read_bytes()).digest()
+                require_loose_save_path(original)
+                if hashlib.sha256(original.read_bytes()).digest() != expected_digest:
+                    raise ValueError('Original save changed during conversion; reopen it before saving')
+                os.replace(candidate, original)
+                published = True
+                self._source_digest = candidate_digest
 
             self._write_status("success", "Save updated successfully!")
             return {"success": True}
 
         except (ValueError, IOError, OSError, subprocess.SubprocessError) as e:
+            if published:
+                warning = f'Save updated, but temporary cleanup failed: {e}'
+                self._write_status('success', warning)
+                return {'success': True, 'warning': warning}
             self._write_status("error", str(e))
             return {"success": False, "error": str(e)}
 
@@ -325,7 +367,8 @@ def launch_editor_process(
     app_dir: str,
     status_file: str,
     screen_width: int,
-    screen_height: int
+    screen_height: int,
+    original_snapshot: Optional[str] = None
 ) -> None:
     """
     Launch the WebView editor in a separate process.
@@ -343,6 +386,7 @@ def launch_editor_process(
         status_file: Path to status file for IPC.
         screen_width: Screen width for window positioning.
         screen_height: Screen height for window positioning.
+        original_snapshot: Pinned compressed source copy used for change detection.
     """
 
     def write_status(status: str, message: str = "") -> None:
@@ -359,7 +403,7 @@ def launch_editor_process(
         # Create API with status callback
         api = EditorApi(
             file_path, file_name, original_save,
-            hlsaves_path, app_dir, write_status
+            hlsaves_path, app_dir, write_status, original_snapshot
         )
 
         # Position on right side (55% of screen)

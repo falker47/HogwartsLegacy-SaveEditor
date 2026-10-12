@@ -141,6 +141,9 @@ def test_dialog_and_write_errors_allow_recovery(session, monkeypatch):
             self.file.write(data[:20])
             raise OSError("disk full")
 
+        def fileno(self):
+            return self.file.fileno()
+
         def __exit__(self, *args):
             self.file.close()
 
@@ -161,20 +164,30 @@ def test_missing_window_returns_error(session):
 
 
 @pytest.mark.parametrize("outcome", [0, 1, OSError("cannot start"), subprocess.SubprocessError("failed")])
-def test_full_save_pipeline_remains_unchanged(session, outcome):
+def test_full_save_pipeline_preserves_status_and_close_with_staged_conversion(session, outcome):
     s = session
     payload = synthetic_save(s.payloads)
     if isinstance(outcome, Exception):
         s.run.side_effect = outcome
     else:
-        s.run.return_value = SimpleNamespace(returncode=outcome, stderr="compressor error")
+        def convert(args, **kwargs):
+            if outcome == 0:
+                data = Path(args[2]).read_bytes()
+                Path(args[3]).write_bytes(b'COMPRESSED' + data if args[1] == '-c' else data[10:])
+            return SimpleNamespace(returncode=outcome, stderr='compressor error')
+        s.run.side_effect = convert
     result = s.api.save_edited_file(encode(payload))
     assert result["success"] is (outcome == 0)
-    assert (s.root / "loaded.edited").read_bytes() == payload
-    s.run.assert_called_once_with(
-        ["hlsaves", "-c", str(s.root / "loaded.edited"), str(s.root / "original.sav")],
-        capture_output=True, text=True, cwd=str(s.root)
-    )
+    assert not list(s.root.glob('.hl-edit-*'))
+    assert not (s.root / 'loaded.edited').exists()
+    assert s.run.call_count == (2 if outcome == 0 else 1)
+    for call in s.run.call_args_list:
+        assert call.args[0][0] == 'hlsaves'
+        assert Path(call.args[0][3]) != s.root / 'original.sav'
+        assert call.kwargs == dict(capture_output=True, text=True, cwd=str(s.root))
+    if outcome == 0:
+        assert (s.root / 'original.sav').read_bytes() == b'COMPRESSED' + payload
+        s.sentinels[s.root / 'original.sav'] = b'COMPRESSED' + payload
     assert s.status.call_args.args[0] == ("success" if outcome == 0 else "error")
     s.window.create_file_dialog.assert_not_called()
     s.window.destroy.assert_not_called()

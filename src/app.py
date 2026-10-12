@@ -10,6 +10,8 @@ import shutil
 import subprocess
 import sys
 import threading
+import tempfile
+import uuid
 import json
 import urllib.request
 import urllib.error
@@ -37,6 +39,7 @@ from .config import (
 from .editor import launch_editor_process
 from .save_browser import SaveBrowser, SaveEntry, format_entry, profile_labels
 from .save_paths import WGS_LIMITATION, export_wgs_saves, find_hogwarts_wgs, require_loose_save_path
+from .save_io import write_new_verified
 
 
 # Choose base class based on drag-drop availability
@@ -839,26 +842,36 @@ class App(BaseWindow):
         backup_dir = self.backup_dir
 
         def do_work():
+            session_dir = None
+            launched = False
+            def cleanup_session():
+                if session_dir is not None:
+                    try:
+                        shutil.rmtree(session_dir)
+                    except OSError as exc:
+                        self._log(f'⚠️ Temporary cleanup failed: {session_dir}: {exc}')
             try:
                 self._show_progress("Creating backup...")
                 self._log("📦 Creating backup...")
 
                 ts = datetime.now().strftime("%Y%m%d_%H%M%S")
                 backup_dir.mkdir(exist_ok=True)
-                backup = backup_dir / f"{save_file.stem}_{ts}.sav.bak"
-                shutil.copy2(save_file, backup)
+                backup = backup_dir / f"{save_file.stem}_{ts}_{uuid.uuid4().hex}.sav.bak"
+                source_bytes = save_file.read_bytes()
+                write_new_verified(backup, source_bytes)
                 self._log("✅ Backup created")
 
                 self._show_progress("Preparing save file...")
 
                 # Copy to temp
-                temp_sav = self.temp_dir / save_file.name
-                shutil.copy2(save_file, temp_sav)
+                session_dir = Path(tempfile.mkdtemp(prefix='edit-', dir=self.temp_dir))
+                temp_sav = session_dir / save_file.name
+                write_new_verified(temp_sav, source_bytes)
 
                 self._show_progress("Decompressing...")
                 self._log("🔓 Decompressing...")
 
-                decomp = self.temp_dir / f"{save_file.stem}.decomp"
+                decomp = session_dir / f"{save_file.stem}.decomp"
                 self.current_decomp_file = decomp
 
                 result = subprocess.run(
@@ -872,7 +885,7 @@ class App(BaseWindow):
                     messagebox.showerror("Error", f"Decompression failed:\n{result.stderr}")
                     return
 
-                if not decomp.exists():
+                if not decomp.is_file() or not decomp.read_bytes().startswith(b'GVAS') or decomp.stat().st_size <= 4:
                     self._hide_progress()
                     self._log("❌ File not created")
                     messagebox.showerror("Error", "Decompression failed.")
@@ -889,7 +902,7 @@ class App(BaseWindow):
                     self._hide_progress()
 
                     # Create status file for communication
-                    status_file = self.temp_dir / "editor_status.txt"
+                    status_file = session_dir / "editor_status.txt"
                     if status_file.exists():
                         status_file.unlink()
 
@@ -903,10 +916,12 @@ class App(BaseWindow):
                             str(self.hlsge_html), str(decomp), decomp.name,
                             str(save_file), str(self.hlsaves_exe),
                             str(self.app_dir), str(status_file),
-                            screen_width, screen_height
+                            screen_width, screen_height, str(temp_sav)
                         )
                     )
                     self.editor_process.start()
+                    editor_process = self.editor_process
+                    launched = True
 
                     self._log("✅ Editor opened!")
                     self._log("")
@@ -916,7 +931,7 @@ class App(BaseWindow):
                     def monitor_status():
                         import time
                         last_status = None
-                        while self.editor_process and self.editor_process.is_alive():
+                        while editor_process.is_alive():
                             try:
                                 if status_file.exists():
                                     with open(status_file, 'r') as f:
@@ -951,6 +966,7 @@ class App(BaseWindow):
                                 pass
 
                         self._log("📝 Editor closed.")
+                        cleanup_session()
 
                     monitor_thread = threading.Thread(target=monitor_status, daemon=True)
                     monitor_thread.start()
@@ -960,13 +976,17 @@ class App(BaseWindow):
                     self._log("🌐 Opening browser editor...")
                     import webbrowser
                     webbrowser.open(self.hlsge_html.as_uri())
-                    os.startfile(self.temp_dir)
+                    os.startfile(session_dir)
+                    launched = True  # Browser fallback needs the disposable input after return.
                     self._log(f"📂 Drag '{decomp.name}' into browser")
 
             except Exception as e:
                 self._hide_progress()
                 self._log(f"❌ Error: {e}")
                 messagebox.showerror("Error", str(e))
+            finally:
+                if session_dir is not None and not launched:
+                    cleanup_session()
 
         # Start in thread
         thread = threading.Thread(target=do_work, daemon=True)

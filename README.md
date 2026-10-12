@@ -112,6 +112,11 @@ Raw DB1/DB2 downloads instead export SQLite files to a chosen destination withou
 
 Backups are stored in a `Backups` directory under the selected save folder. Keep an independent backup before experimenting with save editors.
 
+Save publication now stages converter output beside the original and requires an
+exact decompression round trip before atomic replacement. Backups and exports use
+exclusive, verified writes. The [save integrity audit](docs/save-integrity-audit.md)
+records synthetic fault-injection evidence and the remaining crash/concurrency limits.
+
 ## Development and verification
 
 ### Python tests
