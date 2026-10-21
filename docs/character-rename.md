@@ -130,3 +130,32 @@ A complete rename remains gated on:
 
 Until those gates pass, keep renaming unavailable and do not publish a release or
 claim the character-selection bug has been fully fixed.
+
+
+## Follow-up: public schema and game availability
+
+The continuation checked the installed Windows Computer Use runtime successfully;
+UI observation is available if a game window can be opened. No Hogwarts Legacy
+app/window, Steam library entry, Epic installation manifest, registered uninstall
+entry or installation in the inspected common gaming directories was found.
+This is a bounded availability check, not proof that the game is absent everywhere.
+The additional path supplied by the user contains `HogwartsLegacy-SaveEditor.exe`
+and editor assets, not `HogwartsLegacy.exe`. The game's actual path remains needed.
+No unrelated running app was activated and no game or profile was changed.
+
+Public primary schema sources were also checked at immutable revisions:
+
+- [PhoenixUProj CharacterSaveGameInfo.h](https://github.com/narknon/PhoenixUProj/blob/6decac117d27bb4817913d306a5c417f82675d74/Source/PersistentData/Public/CharacterSaveGameInfo.h)
+  declares FString CharacterName separately from CurrentFormat and the uint8
+  CharacterNameBytes array; the latter two carry SaveGame reflection flags.
+- [Roadou PersistentData_struct.h](https://github.com/Roadou/HogwartsLegacy-SDK/blob/12ffa8a46fb84e7ed13a528715dfd8bb5521594c/src/PersistentData_struct.h)
+  independently exposes NONE/ANSI/WIDE enum values and the same character/index
+  field family. These are reflected memory layouts, not serialized write rules.
+- [PhoenixUProj PersistentData.cpp](https://github.com/narknon/PhoenixUProj/blob/6decac117d27bb4817913d306a5c417f82675d74/Source/PersistentData/Private/PersistentData.cpp)
+  contains a stub for UpdatePlayableCharacterName that simply returns false,
+  along with other empty/default-return implementations. It does not reveal the
+  game's name encoding, which file copies are updated, or recovery semantics.
+
+These sources corroborate why writing only CharacterName is not justified. They
+cannot replace game-generated non-ASCII fixtures or menu/load/save observations.
+No new runtime, game, mod, plugin or service was installed to obtain this evidence.
