@@ -1,5 +1,9 @@
 import { PlayerData } from '../interfaces';
 
+export const renameWarning =
+    'Character renaming is unavailable until names can be updated safely in both the game '
+    + 'and character-selection menu. Existing name mismatches are not repaired.';
+
 export const MAX_VANILLA_EXP = 74000;
 export const MAX_VANILLA_TALENT_POINTS = 36;
 

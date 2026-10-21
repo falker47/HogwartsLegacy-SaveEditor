@@ -85,6 +85,9 @@ def main(request):
         save = synthetic_save(payloads)
         (root / "loaded.dat").write_bytes(save)
         (root / "original.sav").write_bytes(b"original sentinel: never overwrite")
+        (root / "SaveGameList.sav").write_bytes(b"untouched index sentinel")
+        (root / "HL-03-00.sav").write_bytes(b"untouched other-profile sentinel")
+        (root / "HL-01-00.sav").write_bytes(b"untouched other-save sentinel")
         (root / "Backups").mkdir()
         (root / "Backups" / "original.sav").write_bytes(b"backup sentinel")
         repo = Path(__file__).resolve().parents[1]
