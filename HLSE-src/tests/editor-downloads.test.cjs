@@ -245,7 +245,11 @@ for (const variant of ['external', 'fallback']) {
                 assert.deepEqual(readFileSync(path.join(h.root, 'original.sav')), returncode
                     ? Buffer.from('original sentinel: never overwrite')
                     : Buffer.concat([Buffer.from('COMPRESSED'), Buffer.from(expected)]));
-                assert.ok(!Object.keys(h.inspect()).some(name => name.endsWith('.edited')));
+                const files = h.inspect();
+                for (const [name, info] of Object.entries(h.fixture.files)) {
+                    if (name !== 'original.sav') assert.deepEqual(files[name], info);
+                }
+                assert.ok(!Object.keys(files).some(name => name.endsWith('.edited')));
                 assert.deepEqual(call.dialogs, []);
                 assert.equal(call.result.success, returncode === 0);
                 assert.equal(call.status[0][0], returncode ? 'error' : 'success');

@@ -8,6 +8,7 @@ import {
     MAX_VANILLA_TALENT_POINTS,
     levelForExperience,
     progressionWarning,
+    renameWarning,
     validatePlayerNumber
 } from './playerEdits';
 
@@ -239,6 +240,12 @@ export class SaveGameDB {
             }
             if(value !== String(rows[0].values[0][0]))
             {
+                if(key === 'FirstName' || key === 'LastName')
+                {
+                    // DB-only names leave the GVAS/menu copies stale. Do not
+                    // mutate any part of this Apply until a safe rename exists.
+                    throw new Error(renameWarning);
+                }
                 if(key === 'Exp')
                 {
                     validatePlayerNumber(value, key, MAX_VANILLA_EXP);
@@ -316,13 +323,7 @@ export class SaveGameDB {
     }
 
     async modifyPlayerName(playerData: PlayerData): Promise<void> {
-        const db = await this.#gameDB;
-        db.exec(`UPDATE MiscDataDynamic SET DataValue = $firstName WHERE DataName = 'PlayerFirstName'`, {
-            $firstName: playerData.FirstName
-        });
-        db.exec(`UPDATE MiscDataDynamic SET DataValue = $lastName WHERE DataName = 'PlayerLastName'`, {
-            $lastName: playerData.LastName
-        });
+        await this.modifyPlayerData({ FirstName: playerData.FirstName, LastName: playerData.LastName });
     }
 
     async addHouseFlooLocations(): Promise<void> {
