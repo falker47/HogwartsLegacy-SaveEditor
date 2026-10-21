@@ -119,8 +119,12 @@ the ordinary file's character identity cannot be verified.
 This adds no database decompression, database queries, subprocesses, extra file
 opens or persistent personal-data cache. `MiscDataDynamic` contains
 `PlayerFirstName` / `PlayerLastName` used by the embedded editor, but that heavier
-path is unnecessary for browser labels. An editor that changes only database
-names may leave the menu metadata stale; the browser shows the saved menu name.
+path is unnecessary for browser labels. The previous Player rename changed only
+database names and could leave the menu metadata stale; the browser shows the saved menu name. Player names are now read-only
+and actual rename requests fail before SQL mutation. This prevents new partial
+renames and does not repair old mismatches. `CharacterNameBytes`, `CurrentFormat`
+and the manifest's character copies are not rewritten speculatively. See the
+[rename investigation](character-rename.md) for real-copy evidence and open gates.
 
 An apparent newer filesystem autosave missing from the reference Load Game image
 was resolved by the capture sequence: the game image preceded the newer autosave,

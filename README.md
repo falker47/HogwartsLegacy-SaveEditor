@@ -11,6 +11,12 @@ creates ordinary editable/migration copies and never writes changes back to WGS 
 cloud storage. Player Apply changes only edited fields; XP and Talent Points enforce
 the validated progression safeguards. See the [residual audit](docs/nexus-residuals-audit.md).
 
+Character renaming is currently unavailable: First Name and Last Name are read-only.
+The former DB-only rename could leave the game and character-selection menu showing
+different names. This safety change prevents new partial renames; it does not repair
+existing mismatches. See the [rename investigation and remaining gates](docs/character-rename.md).
+Custom DB Upload is a lower-level database replacement and is not a supported rename workflow.
+
 **Latest packaged release:** v1.0.6
 
 ## What this project adds
