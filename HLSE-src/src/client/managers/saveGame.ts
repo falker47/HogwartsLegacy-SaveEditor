@@ -1,5 +1,5 @@
 import AppStateRA from '../resources/appState';
-import { GearItem, LockState, PlayerData, PlayerResource } from '../interfaces';
+import { GearItem, GearStatEdit, LockState, PlayerData, PlayerResource } from '../interfaces';
 import { FastTravelLocks, TransFigurationLocks, SpellLocks, GearLocks, TraitLocks } from '../resources/lists';
 
 class SaveGameManager {
@@ -154,11 +154,18 @@ class SaveGameManager {
         return AppStateRA.saveGameDB.getPlayerGearInventory();
     }
 
-    async updateGearItem(item: GearItem): Promise<void> {
-        if (!AppStateRA.saveGameData || !AppStateRA.saveGameDB) {
-            return;
+    async updateGearItem(item : GearStatEdit) : Promise<void>
+    {
+        return this.updateGearItems([ item ]);
+    }
+
+    async updateGearItems(items : GearStatEdit[]) : Promise<void>
+    {
+        if(!AppStateRA.saveGameData || !AppStateRA.saveGameDB)
+        {
+            throw new Error('Load a save before editing gear.');
         }
-        return AppStateRA.saveGameDB.updateGearItem(item);
+        return AppStateRA.saveGameDB.updateGearItems(items);
     }
 
     async getSpellLocks(): Promise<LockState[]> {
