@@ -159,3 +159,15 @@ Public primary schema sources were also checked at immutable revisions:
 These sources corroborate why writing only CharacterName is not justified. They
 cannot replace game-generated non-ASCII fixtures or menu/load/save observations.
 No new runtime, game, mod, plugin or service was installed to obtain this evidence.
+
+## Revalidation — 25 October 2026
+
+The live base is still main 6a1fc9cd901cdb45a91a300e29a71cb00a35ad90; PR #21 remained Draft at 26f93529f029cdc4e6dc2087a1535f3d7929e067 before this documentation update. Its exact-head CI run [39676128471](https://github.com/falker47/HogwartsLegacy-SaveEditor/actions/runs/39676128471) succeeded. Fresh local verification passed 195 Python tests (Python 3.14) and 73 frontend tests; no product code is changed by this update.
+
+The user broadened authorization to all available saves for sacrificial testing. We created and verified independent copies of 25 ordinary saves plus two support files. Analysis and native transformations used only these additional copies under ignored temporary storage. All 27 original source hashes were verified unchanged afterward; config.json was not read. Both SQLite images in all 25 saves passed integrity_check. Four inputs were already-uncompressed older GVAS, explaining why the converter returns success without producing a decompressed destination; that independent compatibility issue is handled on a separate branch.
+
+All 25 observed CharacterName values remain positive-length ASCII FStrings with CurrentFormat=WIDE; CharacterNameBytes matches the ASCII/UTF-8 bytes plus NUL in those observations. This still does not distinguish non-ASCII encodings or prove a writable WIDE/ANSI transition. It adds no basis to enable rename or to synchronize index/historical copies automatically. No name, UID, account path, save, extracted database or DLL is committed.
+
+The historical availability blocker changed: a Steam install is now present (manifest state 4, build 20773316). There was no active game process. No demonstrated save-path isolation mechanism was established, so the game was not launched against the original directories; menu/load/save/reload and game-generated non-ASCII experiments remain NOT_EXECUTED / HUMAN_GATE. Generic Unreal command-line documentation is not proof that this particular game build redirects every save/index/cloud path safely. No unverified flag or original-folder replacement is used.
+
+The precise remaining prerequisite is an isolated game test session with disposable fixtures: establish non-ASCII serialization and actual metadata consumers first, then implement a recoverable multi-file transaction only if those observations justify it. The read-only UI/backend rename guard and Draft status remain in place; the full synchronized-rename objective remains PARTIAL.
