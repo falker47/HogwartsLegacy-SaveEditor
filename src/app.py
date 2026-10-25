@@ -40,6 +40,7 @@ from .editor import launch_editor_process
 from .save_browser import SaveBrowser, SaveEntry, format_entry, profile_labels
 from .save_paths import WGS_LIMITATION, export_wgs_saves, find_hogwarts_wgs, require_loose_save_path
 from .save_io import write_new_verified
+from .save_format import is_uncompressed_save
 
 
 # Choose base class based on drag-drop availability
@@ -874,16 +875,22 @@ class App(BaseWindow):
                 decomp = session_dir / f"{save_file.stem}.decomp"
                 self.current_decomp_file = decomp
 
-                result = subprocess.run(
-                    [str(self.hlsaves_exe), "-d", str(temp_sav), str(decomp)],
-                    capture_output=True, text=True, cwd=str(self.app_dir)
-                )
+                if is_uncompressed_save(source_bytes):
+                    # hlsaves reports success without creating output for old raw
+                    # saves. Stage the validated snapshot byte-for-byte instead.
+                    write_new_verified(decomp, source_bytes)
+                    self._log("✅ Already-uncompressed save validated")
+                else:
+                    result = subprocess.run(
+                        [str(self.hlsaves_exe), "-d", str(temp_sav), str(decomp)],
+                        capture_output=True, text=True, cwd=str(self.app_dir)
+                    )
 
-                if result.returncode != 0:
-                    self._hide_progress()
-                    self._log(f"❌ Error: {result.stderr}")
-                    messagebox.showerror("Error", f"Decompression failed:\n{result.stderr}")
-                    return
+                    if result.returncode != 0:
+                        self._hide_progress()
+                        self._log(f"❌ Error: {result.stderr}")
+                        messagebox.showerror("Error", f"Decompression failed:\n{result.stderr}")
+                        return
 
                 if not decomp.is_file() or not decomp.read_bytes().startswith(b'GVAS') or decomp.stat().st_size <= 4:
                     self._hide_progress()
