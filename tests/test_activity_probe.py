@@ -80,7 +80,7 @@ def test_cli_only_reads_copies_and_emits_no_personal_keys_or_sidecars(tmp_path):
     db2.write_bytes(database(True))
     catalog.write_text(json.dumps(CATALOG), encoding='utf8')
     before = {p.name:(p.read_bytes(),p.stat().st_mtime_ns) for p in tmp_path.iterdir()}
-    process = subprocess.run([sys.executable,str(SCRIPT),'--db1',str(db1),'--db2',str(db2),'--catalog',str(catalog)],capture_output=True,text=True)
+    process = subprocess.run([sys.executable,str(SCRIPT),'--db1',str(db1),'--db2',str(db2),'--catalog',str(catalog)],stdin=subprocess.DEVNULL,capture_output=True,text=True)
     assert process.returncode == 0, process.stderr
     assert json.loads(process.stdout)['gameplay_completion_verified'] is False
     assert {p.name:(p.read_bytes(),p.stat().st_mtime_ns) for p in tmp_path.iterdir()} == before
