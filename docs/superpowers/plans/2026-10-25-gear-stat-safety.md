@@ -49,8 +49,8 @@
 **Files:** docs/gear-stat-safety.md.
 - [x] Validate production code on new disposable real-save copies; verify all non-target SQLite rows, DB2, tail and native converter exact round trip; re-hash original sources.
 - [x] Independently review the branch; fix any material findings with failing regressions.
-- [x] Check private-file exclusion, dependency hashes and QA package contents; record SHA-256.
-- [x] Push and open one focused Draft PR; inspect CI at its exact HEAD.
+- [ ] Check private-file exclusion, dependency hashes and QA package contents; record SHA-256.
+- [ ] Push and open one focused Draft PR; inspect CI at its exact HEAD.
 
 ## Execution ledger
 
