@@ -2,7 +2,7 @@
 import { ref, onBeforeMount, computed } from 'vue';
 import SaveGameManager from '../managers/saveGame';
 import { PlayerData } from '../interfaces';
-import { playerChanges, progressionWarning } from '../resources/playerEdits';
+import { playerChanges, progressionWarning, renameWarning } from '../resources/playerEdits';
 
 const playerData = ref<PlayerData>({} as PlayerData);
 const originalData = ref<PlayerData>({} as PlayerData);
@@ -69,6 +69,13 @@ onBeforeMount(refreshData);
           {{ progressionWarning }}
         </v-alert>
         <v-alert
+          type="warning"
+          variant="tonal"
+          class="mb-4"
+        >
+          {{ renameWarning }}
+        </v-alert>
+        <v-alert
           v-if="errorMessage"
           type="error"
           class="mb-4"
@@ -81,6 +88,7 @@ onBeforeMount(refreshData);
           >
             <v-text-field
               v-model="playerData.FirstName"
+              readonly
               label="First Name"
               variant="underlined"
             />
@@ -90,6 +98,7 @@ onBeforeMount(refreshData);
           >
             <v-text-field
               v-model="playerData.LastName"
+              readonly
               label="Last Name"
               variant="underlined"
             />

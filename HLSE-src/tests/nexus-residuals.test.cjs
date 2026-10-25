@@ -100,12 +100,12 @@ test('Player page applies only the dirty field, preserves progression and other 
     await h.page.refreshData();
     assert.equal(h.page.playerDataChanged.value, false);
     assert.equal(h.page.playerData.value.BaseInventoryCapacity, '20');
-    h.page.playerData.value.FirstName = 'Edited';
+    h.page.playerData.value.House = 'Slytherin';
     assert.equal(h.page.playerDataChanged.value, true);
     await h.page.savePlayerData();
     assert.equal(h.page.errorMessage.value, '');
     assert.equal(h.page.playerDataChanged.value, false);
-    assert.deepEqual(await h.inspect('SELECT * FROM UpdateAudit'), [['Player', 'PlayerFirstName']]);
+    assert.deepEqual(await h.inspect('SELECT * FROM UpdateAudit'), [['Player', 'HouseID']]);
     assert.deepEqual(await h.inspect("SELECT DataName, DataValue FROM MiscDataDynamic WHERE DataName IN ('ExperiencePoints','PerkPoints') ORDER BY DataName"),
         [['ExperiencePoints', '12025'], ['PerkPoints', '3']]);
     assert.deepEqual(await h.inspect('SELECT * FROM LocksDynamic'), [['h01_m01', 0], ['other-lock', 1]]);
@@ -140,7 +140,7 @@ test('Talent Points reject totals above the vanilla lifetime maximum atomically'
     const h = await fixture(t);
     const before = await h.state.saveGameDB.getDBBytes();
     await assert.rejects(
-        h.manager.modifyPlayerData({ FirstName: 'Must not persist', PerkPoints: '36' }),
+        h.manager.modifyPlayerData({ House: 'Slytherin', PerkPoints: '36' }),
         /cannot exceed 36/
     );
     assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
@@ -188,7 +188,7 @@ for (const value of ['', '-1', '1.5', 'NaN', 'Infinity', '1e3', ' 20 ', '2147483
     test(`Invalid capacity ${JSON.stringify(value)} prevents every form mutation`, async t => {
         const h = await fixture(t);
         const before = await h.state.saveGameDB.getDBBytes();
-        await assert.rejects(h.manager.modifyPlayerData({ FirstName: 'Must not persist', BaseInventoryCapacity: value }), /whole number|must be text/);
+        await assert.rejects(h.manager.modifyPlayerData({ House: 'Slytherin', BaseInventoryCapacity: value }), /whole number|must be text/);
         assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
     });
 }
@@ -245,11 +245,11 @@ test('Missing Player rows stay absent and reads retain the existing null-safety'
 test('SQL failure rolls back prior fields in the same Apply', async t => {
     const h = await fixture(t);
     const db = new h.SQL.Database(await h.state.saveGameDB.getDBBytes());
-    db.run(`CREATE TRIGGER deny_last BEFORE UPDATE ON MiscDataDynamic WHEN new.DataName='PlayerLastName'
+    db.run(`CREATE TRIGGER deny_capacity BEFORE UPDATE ON MiscDataDynamic WHEN new.DataName='BaseInventoryCapacity'
         BEGIN SELECT RAISE(ABORT, 'test constraint'); END;`);
     h.state.saveGameDB = new (h.load('resources/saveGameDB.ts').SaveGameDB)(db.export());
     db.close();
-    await assert.rejects(h.manager.modifyPlayerData({ FirstName: 'Changed', LastName: 'Fail' }), /test constraint/);
+    await assert.rejects(h.manager.modifyPlayerData({ House: 'Slytherin', BaseInventoryCapacity: '21' }), /test constraint/);
     assert.deepEqual(await h.inspect('SELECT * FROM UpdateAudit'), []);
     assert.equal((await h.manager.getPlayerData()).FirstName, 'Test');
 });
@@ -316,4 +316,160 @@ test('UI exposes restored Wand/Revelio actions and guarded progression editing',
     assert.doesNotMatch(player, /v-model="playerData.PerkPoints"\s+readonly/);
     assert.match(player, /v-model="playerData.Exp"[\s\S]*max="74000"/);
     assert.match(player, /v-model="playerData.PerkPoints"[\s\S]*max="36"/);
+});
+
+
+for (const [field, value] of [
+    ['FirstName', 'A'], ['FirstName', 'A substantially longer name'],
+    ['FirstName', 'Élodie'], ['LastName', '张𐐀'], ['LastName', ''],
+]) {
+    test(`Rename guard rejects ${field}=${JSON.stringify(value)} before any mixed Apply mutation`, async t => {
+        const h = await fixture(t);
+        const before = await h.state.saveGameDB.getDBBytes();
+        await assert.rejects(
+            h.manager.modifyPlayerData({ Galleons: '4321', House: 'Slytherin', [field]: value }),
+            /renam.*unavailable/i
+        );
+        assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
+        assert.deepEqual(await h.inspect('SELECT * FROM UpdateAudit'), []);
+    });
+}
+
+test('Legacy rename cannot bypass the guard or touch names belonging to other owners', async t => {
+    const h = await fixture(t);
+    const db = new h.SQL.Database(await h.state.saveGameDB.getDBBytes());
+    db.run("INSERT INTO MiscDataDynamic VALUES ('Other', 'PlayerFirstName', 'Other'), ('Other', 'PlayerLastName', 'Person')");
+    h.state.saveGameDB = new (h.load('resources/saveGameDB.ts').SaveGameDB)(db.export());
+    db.close();
+    const before = await h.state.saveGameDB.getDBBytes();
+    await assert.rejects(
+        h.state.saveGameDB.modifyPlayerName({ FirstName: 'Changed', LastName: 'Name' }),
+        /renam.*unavailable/i
+    );
+    assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
+    await h.state.saveGameDB.modifyPlayerName({ FirstName: 'Test', LastName: 'Wizard' });
+    assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
+});
+
+test('Player page reports a rejected programmatic rename without changing the stored name or progression', async t => {
+    const h = await fixture(t);
+    await h.page.refreshData();
+    const before = await h.state.saveGameDB.getDBBytes();
+    h.page.playerData.value.FirstName = 'Changed';
+    await h.page.savePlayerData();
+    assert.match(h.page.errorMessage.value, /renam.*unavailable/i);
+    assert.equal(h.page.playerDataChanged.value, true);
+    assert.equal((await h.manager.getPlayerData()).FirstName, 'Test');
+    assert.deepEqual(await h.state.saveGameDB.getDBBytes(), before);
+    await h.page.resetPlayerData();
+    assert.equal(h.page.playerDataChanged.value, false);
+});
+
+
+// Tagged synthetic GVAS, not evidence of game-specific write semantics.
+const int32 = value => { const b = Buffer.alloc(4); b.writeInt32LE(value); return b; };
+function fstring(value, wide = false) {
+    const bytes = Buffer.from(value + '\0', wide ? 'utf16le' : 'utf8');
+    return Buffer.concat([int32(wide ? -bytes.length / 2 : bytes.length), bytes]);
+}
+function tag(name, kind, payload, extra = Buffer.alloc(0)) {
+    return Buffer.concat([fstring(name), fstring(kind), int32(payload.length), int32(0), extra, Buffer.from([0]), payload]);
+}
+const tags = (...items) => Buffer.concat([...items, fstring('None')]);
+const structure = (name, type, value) => tag(name, 'StructProperty', value, Buffer.concat([fstring(type), Buffer.alloc(16)]));
+const byteArray = (name, value) => tag(name, 'ArrayProperty', Buffer.concat([int32(value.length), value]), fstring('ByteProperty'));
+function metadataTail(name, wide, profile = 2) {
+    return Buffer.concat([tags(
+        structure('CharacterSaveGameInfo', 'CharacterSaveGameInfo', tags(
+            tag('CharacterID', 'IntProperty', int32(profile)),
+            tag('CharacterName', 'StrProperty', fstring(name, wide)),
+            // Intentionally opaque: do not invent the game's byte-array encoding.
+            byteArray('CharacterNameBytes', Buffer.from([255, 0, 128, 1, 2, 3])),
+            tag('bIsUsed', 'BoolProperty', Buffer.alloc(0), Buffer.from([1]))
+        )),
+        structure('DirectoryEntry', 'SaveDirectoryEntry', tags(
+            tag('CharacterID', 'IntProperty', int32(profile)),
+            tag('FilenameSlot', 'StrProperty', fstring(`HL-0${profile}-00`))
+        ))
+    ), Buffer.alloc(4)]);
+}
+function container(db1, db2, tail) {
+    return Buffer.concat([
+        Buffer.from('GVAS'), int32(2), int32(524), Buffer.alloc(10), fstring('synthetic'),
+        int32(3), int32(0), fstring('/Script/PersistentData.PersistentGameData'),
+        byteArray('RawDatabaseImage', db1), byteArray('RawExclusiveImage', db2), tail
+    ]);
+}
+const arrayBuffer = bytes => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+
+for (const [name, wide] of [['Test Wizard', false], ['Élodie Example', false], ['张𐐀 Example', true]]) {
+    test(`DB-only replacement reproduces a stale ${wide ? 'UTF-16' : 'UTF-8'} menu name: ${name}`, async t => {
+        const h = await fixture(t);
+        const { SaveGameData } = h.load('lib/saveGameData.ts');
+        const db1 = await h.state.saveGameDB.getDBBytes();
+        const db2 = Buffer.from('untouched secondary database sentinel');
+        const tail = metadataTail(name, wide);
+        const source = container(db1, db2, tail);
+        const save = new SaveGameData(arrayBuffer(source));
+        // Model the old DB-only rename (and custom DB import) directly. This
+        // characterization must keep passing until coordinated rename is proven.
+        const changed = new h.SQL.Database(db1);
+        changed.run("UPDATE MiscDataDynamic SET DataValue='A much longer new name' WHERE DataOwner='Player' AND DataName='PlayerFirstName'");
+        const generated = save.generateSaveFile(changed.export());
+        changed.close();
+        const parsed = new SaveGameData(arrayBuffer(generated));
+        const check = new h.SQL.Database(parsed.primaryDB);
+        assert.deepEqual(check.exec("SELECT DataValue FROM MiscDataDynamic WHERE DataName='PlayerFirstName'")[0].values, [['A much longer new name']]);
+        check.close();
+        assert.deepEqual(Buffer.from(generated.slice(-tail.length)), tail);
+        assert.deepEqual(Buffer.from(parsed.secondaryDB), db2);
+        assert.ok(Buffer.from(generated).includes(fstring(name, wide)));
+    });
+}
+
+for (const tail of [metadataTail('Same Name', true), metadataTail('Same Name', false, 3),
+    tags(), Buffer.from('corrupt optional metadata')]) {
+    test(`A blocked rename preserves metadata and a subsequent capacity edit preserves the exact tail (${tail.length} bytes)`, async t => {
+        const h = await fixture(t);
+        const { SaveGameData } = h.load('lib/saveGameData.ts');
+        const db2 = Buffer.from('secondary sentinel');
+        const original = container(await h.state.saveGameDB.getDBBytes(), db2, tail);
+        h.state.saveGameData = new SaveGameData(arrayBuffer(original));
+        await assert.rejects(h.manager.modifyPlayerData({ FirstName: 'Changed' }), /renam.*unavailable/i);
+        await h.manager.modifyPlayerData({ BaseInventoryCapacity: '21' });
+        const generated = await h.manager.generateSaveFile();
+        assert.deepEqual(Buffer.from(generated.slice(-tail.length)), tail);
+        assert.deepEqual(Buffer.from(new SaveGameData(arrayBuffer(generated)).secondaryDB), db2);
+        assert.equal((await h.manager.getPlayerData()).FirstName, 'Test');
+        assert.equal((await h.manager.getPlayerData()).BaseInventoryCapacity, '21');
+    });
+}
+
+test('Rendered Player page keeps both names read-only and capacity editable', async t => {
+    const h = await fixture(t);
+    await h.page.refreshData();
+    const { compileTemplate } = require('@vue/compiler-sfc');
+    const { createSSRApp, h: vnode } = require('vue');
+    const { renderToString } = require('vue/server-renderer');
+    const source = parse(readFileSync(path.join(__dirname, '../src/client/pages/playerDetailPage.vue'), 'utf8')).descriptor.template.content;
+    const template = compileTemplate({ source, filename: 'playerDetailPage.vue', id: 'rename-test' });
+    assert.deepEqual(template.errors, []);
+    const module = { exports: {} };
+    const code = ts.transpileModule(template.code, {compilerOptions: { module: ts.ModuleKind.CommonJS }}).outputText;
+    new Function('require', 'exports', code)(require, module.exports);
+    const app = createSSRApp({ render: module.exports.render, setup: () => ({
+        ...h.page, ...h.load('resources/playerEdits.ts')
+    }) });
+    for (const component of ['v-card', 'v-container', 'v-alert', 'v-row', 'v-col', 'v-btn', 'v-combobox']) {
+        app.component(component, { setup: (_, { slots }) => () => vnode('div', slots.default?.()) });
+    }
+    app.component('v-text-field', {
+        props: ['modelValue', 'label', 'readonly'],
+        setup: props => () => vnode('input', { value: props.modelValue, readonly: props.readonly === '' || props.readonly === true, 'aria-label': props.label })
+    });
+    const html = await renderToString(app);
+    assert.match(html, /<input[^>]*readonly[^>]*aria-label="First Name"/);
+    assert.match(html, /<input[^>]*readonly[^>]*aria-label="Last Name"/);
+    assert.match(html, /<input value="20" aria-label="Base Inventory Capacity"/);
+    assert.match(html, /Character renaming is unavailable/);
 });
