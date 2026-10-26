@@ -1,0 +1,10 @@
+HOGWARTS LEGACY SAVE EDITOR 1.0.7-rc1 -- QA CANDIDATE
+
+Not accepted for Nexus publication. Read ACCEPTANCE.md for exact evidence and limits.
+Character rename is disabled. Merlin Trials / Butterfly completion is not implemented.
+Gear edits target stored backpack Offense/Defense; gameplay persistence requires acceptance.
+The native converter includes HL-02A, HL-02C and HL-02D and has passed local Oodle round trips.
+Only use disposable copies and independent backups. No WGS write-back or cloud synchronization.
+Oodle is proprietary and not included: select your own legitimate local runtime when requested.
+QA-MANIFEST.json identifies the exact source commit and SHA256 of every public file.
+There has been no merge to main, public GitHub release or Nexus publication.

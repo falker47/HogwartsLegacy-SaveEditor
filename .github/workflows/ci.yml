@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -28,6 +30,8 @@ jobs:
         working-directory: HLSE-src
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -47,6 +51,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -58,45 +64,15 @@ jobs:
       - name: Build release package end to end
         shell: cmd
         run: build_release.bat
-      - name: Verify release contents
-        shell: powershell
-        run: |
-          $required = @(
-            "release\HogwartsLegacy-SaveEditor.exe",
-            "release\assets\HLSGE.html",
-            "release\assets\hlsaves.exe",
-            "release\THIRD_PARTY_NOTICES.md",
-            "release\hlsavetool-LICENSE.txt"
-          )
-          foreach ($path in $required) {
-            if (-not (Test-Path $path)) { throw "Missing expected release file: $path" }
-          }
-          if (Test-Path "release\assets\oo2core_9_win64.dll") {
-            throw "Oodle DLL must not be distributed in the release package."
-          }
-
-      - name: Create QA-only manifest
-        if: github.event_name == 'pull_request' && github.head_ref == 'codex/qa-candidate-20261025'
-        shell: powershell
+      - name: Verify complete package and embedded assets
+        shell: pwsh
         env:
-          QA_PR_HEAD: ${{ github.event.pull_request.head.sha }}
-          QA_WORKFLOW_SHA: ${{ github.sha }}
+          QA_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          @(
-            'HOGWARTS LEGACY SAVE EDITOR -- QA ONLY, NOT A RELEASE'
-            'This build is NOT ready for Nexus Mods publication.'
-            "PR head: $env:QA_PR_HEAD"
-            "Workflow checkout: $env:QA_WORKFLOW_SHA"
-            'Based on PR #26 (changes from PRs #21-#24); it contains the existing pinned converter.'
-            'Character renaming is disabled pending synchronized metadata validation.'
-            'Merlin Trials / Butterfly completion edits are NOT implemented.'
-            'Do not use production save directories. Make independent backups; test disposable copies.'
-            'The proprietary Oodle DLL is not included.'
-          ) | Set-Content 'release/QA-READ-ME-FIRST.txt' -Encoding UTF8
-          Get-FileHash 'release/HogwartsLegacy-SaveEditor.exe','release/assets/HLSGE.html','release/assets/hlsaves.exe' -Algorithm SHA256 |
-            ForEach-Object { "$($_.Hash.ToLowerInvariant())  $($_.Path | Split-Path -Leaf)" } |
-            Set-Content 'release/QA-SHA256.txt' -Encoding ASCII
-          if (-not (Test-Path 'release/QA-READ-ME-FIRST.txt')) { throw 'QA manifest missing' }
+          $checkout = (git rev-parse HEAD).Trim()
+          if ($checkout -ne $env:QA_HEAD) { throw 'Wrong checkout for QA artifact' }
+          python scripts/verify_release.py --release release --commit $checkout
+          if ($LASTEXITCODE -ne 0) { throw 'Package validation failed' }
 
       - name: Upload QA candidate package (never publish)
         if: github.event_name == 'pull_request' && github.head_ref == 'codex/qa-candidate-20261025'
@@ -105,4 +81,4 @@ jobs:
           name: HogwartsLegacy-SaveEditor-PR26-QA
           path: release/
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30

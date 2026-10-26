@@ -1,3 +1,8 @@
+> Superseded status, 26 October 2026: the PR26 release candidate now promotes HL-02A/C/D after actual
+> Oodle verification. See [current provenance](../third_party/hlsavetool/PROVENANCE.md) and
+> [acceptance matrix](release-candidate-acceptance.md). The following records the earlier investigation;
+> its statements that the converter was not promoted describe that earlier checkpoint.
+
 # Native converter: synthetic round-trip failure and proposed source patches
 
 ## Observed behavior

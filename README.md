@@ -1,3 +1,5 @@
+> **1.0.7-rc1 QA candidate:** see [acceptance and limits](docs/release-candidate-acceptance.md). Character rename and Merlin/Butterfly completion remain unavailable. This is not an accepted Nexus release.
+
 # Hogwarts Legacy Save Editor & Manager
 
 ![Banner](banner_rectangular.webp)
@@ -91,7 +93,7 @@ python -m pip install -r requirements.txt
 python main.py
 ```
 
-`fetch_hlsaves.ps1` installs the vendored **hlsavetool v2.0.1 + HL-02A** package (`2.0.1-hl02a.1`) without downloading this dependency. It verifies the ZIP, extracted executable and final destination SHA-256 before reporting success. The generated `assets/hlsaves.exe` stays ignored by Git. The minimal DB2 tail-parsing patch, hashes and reproducible build provenance are public under [third_party/hlsavetool](third_party/hlsavetool/PROVENANCE.md). The Oodle DLL is not included.
+`fetch_hlsaves.ps1` installs the vendored **hlsavetool v2.0.1 + HL-02A/HL-02C/HL-02D** package (`2.0.1-hl02acd.1`) without downloading this dependency. It verifies the ZIP, extracted executable and final destination SHA-256 before reporting success. The generated `assets/hlsaves.exe` stays ignored by Git. The minimal DB2 tail-parsing patch, hashes and reproducible build provenance are public under [third_party/hlsavetool](third_party/hlsavetool/PROVENANCE.md). The Oodle DLL is not included.
 
 ## Usage
 
@@ -181,7 +183,7 @@ GitHub Actions checks Python tests and the frontend production build on Linux, p
 
 This project depends on components with their own provenance and terms:
 
-- **hlsaves / hlsavetool** — MIT compression/decompression utility credited to Katt, via `gx570s/hlsavetool` and parent `topche-katt/hlsavetool`. This project vendors a reproducible v2.0.1 build with the minimal HL-02A DB2 tail fix and verifies both archive and executable hashes.
+- **hlsaves / hlsavetool** — MIT compression/decompression utility credited to Katt, via `gx570s/hlsavetool` and parent `topche-katt/hlsavetool`. This project vendors a reproducible v2.0.1 build with HL-02A DB2 tail, HL-02C realloc and HL-02D output-capacity fixes and verifies both archive and executable hashes.
 - **HLSGE / Hogwarts Legacy Save Game Editor** — embedded web editor derived from the Nexus Mods project; its upstream permissions are separate from this repository's license.
 - **oo2core_9_win64.dll** — proprietary Oodle runtime component; not distributed by this repository.
 

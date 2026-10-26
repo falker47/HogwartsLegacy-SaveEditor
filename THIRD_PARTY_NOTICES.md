@@ -7,10 +7,10 @@ This file documents provenance and license boundaries for external components us
 - **Upstream:** https://github.com/gx570s/hlsavetool
 - **Parent project:** https://github.com/topche-katt/hlsavetool
 - **Purpose:** compression/decompression of Hogwarts Legacy save databases
-- **Baseline:** v2.0.1, with the minimal local HL-02A DB2 tail-parsing patch
-- **Vendored package:** 2.0.1-hl02a.1
-- **ZIP SHA-256:** `eeedcc913d1ea916e9edc6b599002bac7823a9989050b79851b5f9f02c0b7a75`
-- **EXE SHA-256:** `bdf28ae18dc5ecf049af37ca863085851f2cd0f5b22895f9637c5820c8d0f70e`
+- **Baseline:** v2.0.1, with local HL-02A DB2 tail, HL-02C realloc-source and HL-02D output-capacity patches
+- **Vendored package:** 2.0.1-hl02acd.1
+- **ZIP SHA-256:** `d3aeb8f6c8a8faab3c67041f0265a06446cdc71e9abc876b3a632293ea3f77fc`
+- **EXE SHA-256:** `4080b409c125c29a3b977ed42160e36fb422fe0eaaa7f0c5d9419737a81cd3bb`
 - **Upstream license:** MIT
 - **Upstream copyright notice:** Copyright (c) 2024 Katt
 

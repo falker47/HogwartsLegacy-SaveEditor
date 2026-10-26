@@ -1,4 +1,29 @@
-# Vendored hlsavetool: v2.0.1 + HL-02A
+# Current candidate: hlsavetool 2.0.1-hl02acd.1
+
+Upstream MIT code: gx570s/hlsavetool at `1bab30e3f62a23e8687c2d4995356fd48949dd05`, credited to Katt.
+Apply HL-02A (DB2 tail), HL-02C (realloc source) and HL-02D (output capacity), in order.
+The current ZIP includes the exact patched `source/src` and `source/headers`, all three patches, license,
+SOURCE.json with per-file hashes, and build-gcc.ps1. The older package below is retained only for history.
+
+- ZIP: `HLSaveToolv2.0.1-hl02acd.1.zip`, SHA256 `d3aeb8f6c8a8faab3c67041f0265a06446cdc71e9abc876b3a632293ea3f77fc`.
+- EXE: 161449 bytes, SHA256 `4080b409c125c29a3b977ed42160e36fb422fe0eaaa7f0c5d9419737a81cd3bb`.
+- Toolchain: existing MSYS2 UCRT64 GCC 13.1.0 Rev6; `-O2 -static -Wl,--no-insert-timestamp`.
+- Rebuilds using both relative and absolute source paths reproduced identical executable bytes.
+- Windows system UCRT is required; no MinGW runtime DLL dependency. Oodle is loaded separately.
+- 26 October 2026: actual local Oodle passed 55 exact round trips across 11 synthetic cases, five cycles
+  each; valid SQLite output-expansion case (5125 to 5137 bytes), entropy up to 6.3 MB, DB1/DB2,
+  DB2 absent, opaque inter-image/tail data. A separate test-only forced-moving-realloc executable
+  passed the same 55 cycles. Native capacity unit tests pass.
+- Production JS manager/generator plus Python verified publication passed on 25 new game-save copies;
+  exactly one chosen Gear stat changed, all remaining DB1/DB2/opaque data preserved, 27 original hashes unchanged.
+- No gameplay acceptance is implied. Local runtime provenance was confirmed by the user.
+
+Neither ZIP nor release includes Oodle or user save data. Tests requiring Oodle are local opt-in checks;
+public CI compiles native source and verifies the helper without downloading proprietary software.
+
+---
+
+# Historical package: v2.0.1 + HL-02A
 
 This is a third-party MIT component, originally credited to **Katt**, with a minimal local DB2 tail fix. It is not original converter code authored by falker47. The downstream package label is **2.0.1-hl02a.1**, not an upstream release.
 

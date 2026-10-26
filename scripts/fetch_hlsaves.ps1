@@ -10,10 +10,10 @@ if (-not $Destination) {
 }
 $Destination = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Destination)
 
-$Version = "2.0.1-hl02a.1"
+$Version = "2.0.1-hl02acd.1"
 $ArchivePath = Join-Path $RepoRoot "third_party/hlsavetool/HLSaveToolv$Version.zip"
-$ExpectedArchiveSha256 = "eeedcc913d1ea916e9edc6b599002bac7823a9989050b79851b5f9f02c0b7a75"
-$ExpectedExeSha256 = "bdf28ae18dc5ecf049af37ca863085851f2cd0f5b22895f9637c5820c8d0f70e"
+$ExpectedArchiveSha256 = "d3aeb8f6c8a8faab3c67041f0265a06446cdc71e9abc876b3a632293ea3f77fc"
+$ExpectedExeSha256 = "4080b409c125c29a3b977ed42160e36fb422fe0eaaa7f0c5d9419737a81cd3bb"
 
 if (-not (Test-Path -LiteralPath $ArchivePath -PathType Leaf)) {
     throw "Vendored hlsavetool archive is missing: $ArchivePath. Restore it from this repository."

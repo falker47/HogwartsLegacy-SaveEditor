@@ -34,20 +34,14 @@ class AppStateRA
 
     async loadSaveGameData(fileArrayBuffer : ArrayBuffer) : Promise<void>
     {
-        this.#saveGameData = undefined;
-        this.#saveGameDB = undefined;
-        this.appState.isSaveFileLoaded = false;
-        try
-        {
-            this.#saveGameData = new SaveGameData(fileArrayBuffer);
-            this.#saveGameDB = new SaveGameDB(this.#saveGameData.primaryDB.slice());
-            this.appState.isSaveFileLoaded = true;
-        }
-        catch (err)
-        {
-            console.error('Error Loading Save Game Data');
-            console.error(err);
-        }
+        const data = new SaveGameData(fileArrayBuffer);
+        const database = new SaveGameDB(data.primaryDB.slice());
+        // Finish SQLite initialization before replacing the editable session.
+        // A rejected replacement must preserve the user's pending changes.
+        await database.getDBBytes();
+        this.#saveGameData = data;
+        this.#saveGameDB = database;
+        this.appState.isSaveFileLoaded = true;
     }
 }
 

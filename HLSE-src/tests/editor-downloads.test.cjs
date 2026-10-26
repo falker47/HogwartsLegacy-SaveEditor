@@ -166,6 +166,25 @@ async function harness(t, variant) {
 }
 
 for (const variant of ['external', 'fallback']) {
+    test(`${variant}: cancelled upload keeps the current editable save`, async (t) => {
+        const h = await harness(t, variant);
+        const prior = h.appState.saveGameDB;
+        await assert.doesNotReject(h.handler.handleFileUpload({ target: { files: [] } }));
+        assert.equal(h.appState.saveGameDB, prior);
+        assert.equal(h.appState.appState.isSaveFileLoaded, true);
+    });
+
+    test(`${variant}: malformed replacement rejects without discarding pending edits`, async (t) => {
+        const h = await harness(t, variant);
+        await h.appState.saveGameDB.modifyPlayerPerkPoints('12');
+        const prior = h.appState.saveGameDB;
+        const bytes = await prior.getDBBytes();
+        await assert.rejects(h.appState.loadSaveGameData(new Uint8Array([1, 2, 3]).buffer), /format/i);
+        assert.equal(h.appState.saveGameDB, prior);
+        assert.equal(h.appState.appState.isSaveFileLoaded, true);
+        assert.deepEqual(await prior.getDBBytes(), bytes);
+    });
+
     test(`${variant}: DB1/DB2 programmatic downloads export raw bytes without write-back`, async (t) => {
         const h = await harness(t, variant);
         // Pending SQL changes must not silently alter the meaning of raw export.
