@@ -1,4 +1,4 @@
-# Native converter: synthetic round-trip failure and proposed source patch
+# Native converter: synthetic round-trip failure and proposed source patches
 
 ## Observed behavior
 
@@ -12,7 +12,15 @@ The [pinned upstream compress() implementation](https://github.com/gx570s/hlsave
 
 [HL-02C-realloc-source.patch](../third_party/hlsavetool/HL-02C-realloc-source.patch) changes only that source pointer. It applies to the pinned upstream version after the existing HL-02A patch (which changes a different file). An independent source review confirmed the defect and the minimal correction.
 
-This source finding is proven; attributing the observed runtime failure exclusively to it remains an inference because the allocator move was not instrumented. The replacement binary has **not** been built or validated. The exact recorded MSVC toolchain was not available at its recorded path and no compiler was found in the available PATH. No compiler was installed. The pinned archive, installer hashes and application converter remain unchanged.
+This source finding is proven; attributing the observed runtime failure exclusively to it remains an inference because the allocator move was not instrumented in the integrated converter. The original MSVC 19.29 toolchain was unavailable in the earlier local environment. A **temporary** patched executable has since been compiled in GitHub Actions using MSVC 19.44, but it was not validated with Oodle, promoted, shipped, or checked for binary identity with the older compiler. The pinned archive, installer hashes and application converter remain unchanged.
+
+## Capacity hardening candidate and native compilation — 26 October 2026
+
+[HL-02D-output-capacity.patch](../third_party/hlsavetool/HL-02D-output-capacity.patch) applies after HL-02A and HL-02C. It adds an overflow-checked grow-on-demand buffer for each UpkOodle header and compressed payload, validates Oodle-reported lengths, uses a non-wrapping chunk position counter, and rejects serialized results too large for UArrayProperty. It changes only source code and adds a small native helper header; it does not include Oodle or any user data.
+
+[Native Windows build and capacity test](https://github.com/falker47/HogwartsLegacy-SaveEditor/actions/runs/40348465659): **PASS**, using Visual Studio 2022/MSVC 19.44.35229.0 on runner windows-2022. The patched full converter compiled, and [native_chunk_capacity.c](../tests/native_chunk_capacity.c) exercised reallocation growth, preservation of existing bytes, overflow rejection, and no-op reservations. The same helper had previously passed standalone GCC and Clang checks. [General CI](https://github.com/falker47/HogwartsLegacy-SaveEditor/actions/runs/40348465895): **PASS** at commit `6e76946`. This is source compilation and a helper-unit test, **not** an Oodle-backed save round trip.
+
+The pinned converter executable has **not** been changed. In particular, its synthetic DB1/DB2 failure remains the latest native end-to-end result; a corrected converter has not yet been exercised against Oodle or game-generated save copies.
 
 ## Reproduce without personal saves
 
@@ -29,7 +37,7 @@ The output directory must not exist. The script verifies the converter hash befo
 - Rebuild baseline and corrected source with a recorded toolchain, preserving MIT attribution and HL-02A DB2/tail behavior; independently reproduce the resulting bytes.
 - Instrument or force a moving realloc to demonstrate that the source regression fails before and passes after the change.
 - Exercise the standalone synthetic case repeatedly, the game-generated copy corpus, DB1/DB2, missing/empty DB2, chunk boundaries and opaque-byte invariants.
-- Exercise poorly compressible data. Source review also identified a separate inherited capacity concern: `result_data` is allocated to the original DB size but receives chunk headers plus compressed data without a capacity check. The one-line realloc patch does not address that concern; validate/fix capacity and all associated failure paths before promoting a new converter.
+- Exercise poorly compressible data and compressed chunks larger than the original buffer. The new HL-02D candidate bounds growth, but this has only been proven by a native helper-unit test and source compilation; full Oodle integration, error-path checks and boundary round trips are still required.
 - Re-run installer/hash tamper tests, native exact round trips, publication/concurrency/recovery tests and Windows release smoke. Update provenance, checksums and vendored artifact only after those gates pass.
 
 No new converter binary or runtime is committed by this PR. This is a reproducible investigation and proposed source correction, not a claim that the candidate converter has been fixed.

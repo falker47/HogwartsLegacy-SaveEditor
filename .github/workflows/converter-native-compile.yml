@@ -31,7 +31,7 @@ jobs:
           ref: 1bab30e3f62a23e8687c2d4995356fd48949dd05
           path: native/upstream
           persist-credentials: false
-      - name: Verify provenance and apply the two source patches
+      - name: Verify provenance and apply all native source patches
         shell: pwsh
         run: |
           $root = 'native/upstream'
