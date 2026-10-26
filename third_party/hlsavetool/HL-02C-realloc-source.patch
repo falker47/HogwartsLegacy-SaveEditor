@@ -1,0 +1,11 @@
+--- a/src/oodle.c
++++ b/src/oodle.c
+@@ -88,7 +88,7 @@
+         printf_error("Reallocating memory of size %llu failed", new_size);
+         exit(EXIT_FAILURE);
+     }
+-    memmove(new_value + sizeof(upk_sqlite_size), data->value, data->size);
++    memmove(new_value + sizeof(upk_sqlite_size), new_value, data->size);
+     memcpy(new_value, &upk_sqlite_size, sizeof(upk_sqlite_size));
+     data->value = new_value;
+     data->size = new_size;
