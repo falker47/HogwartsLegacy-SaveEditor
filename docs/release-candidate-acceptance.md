@@ -1,8 +1,9 @@
 # 1.0.7-rc1 acceptance — 26 October 2026
 
-**Release readiness: NOT_READY for the complete requested Nexus scope.** A concrete reduced-scope
-Windows candidate is being delivered through the existing Draft PR #26. No main merge, public release,
-Nexus upload or archive-PR #27 integration is authorized or performed. The artifact's QA-MANIFEST.json
+**Release readiness: NOT_READY for the complete requested Nexus scope; accepted for reduced-scope
+publication on 26 October 2026.** The maintainer accepted the candidate and authorized publication
+after the recorded Windows/game QA. PR #26 is the single integration path; archive PR #27 remains
+separate. Version 1.0.7-rc1 and the exclusions below are retained. The artifact's QA-MANIFEST.json
 records its exact source commit, file sizes and SHA256 hashes.
 
 ## Evidence and user requests
@@ -55,7 +56,7 @@ were reread. Positive author replies and historical green tests are not fresh ac
 Executed on 26 October 2026 using the downloaded PR26 artifact from commit
 `b46f6a169af5e0d0e8c30ea9db812a6c41b832ab`, EXE SHA256
 `d51656f31859e5c013c0040e1165a607d95bb4b9224dc3f774734e86ed6ddab1`.
-The subsequent evidence-only revision changes these release documents, not application code or assets.
+The subsequent evidence/acceptance revisions change release documents, not application code or assets.
 Game: Steam build 20773316, title version 1613387. This is one real profile and one edited item,
 not exhaustive certification of every save, item, platform or existing editor feature.
 
@@ -76,7 +77,7 @@ not exhaustive certification of every save, item, platform or existing editor fe
   and exact original file set. The two extra QA saves and session evidence were preserved privately.
   Steam Cloud remains disabled. No personal saves, names, screenshots or proprietary DLL are published.
 
-The Windows candidate is available for acceptance with this reduced scope. Full mission readiness
+The Windows candidate was accepted for publication with this reduced scope. Full mission readiness
 remains NOT_READY because the rename, completion and quest writers below are absent. The absence of
 those writers is explicit, not concealed by the successful converter/Gear tests.
 

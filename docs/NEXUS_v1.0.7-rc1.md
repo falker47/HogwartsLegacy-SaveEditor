@@ -1,6 +1,7 @@
-# Nexus Mods draft — 1.0.7-rc1
+# Nexus Mods release notes — 1.0.7-rc1
 
-**Do not publish before final acceptance.** This is a reduced-scope compatibility and reliability candidate.
+Reduced-scope compatibility and reliability update, accepted for publication by the maintainer
+on 26 October 2026. The release-candidate version is retained; unsupported features are listed below.
 
 ## Changes
 
