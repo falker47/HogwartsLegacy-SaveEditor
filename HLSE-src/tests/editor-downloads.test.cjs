@@ -166,6 +166,25 @@ async function harness(t, variant) {
 }
 
 for (const variant of ['external', 'fallback']) {
+    test(`${variant}: cancelled upload keeps the current editable save`, async (t) => {
+        const h = await harness(t, variant);
+        const prior = h.appState.saveGameDB;
+        await assert.doesNotReject(h.handler.handleFileUpload({ target: { files: [] } }));
+        assert.equal(h.appState.saveGameDB, prior);
+        assert.equal(h.appState.appState.isSaveFileLoaded, true);
+    });
+
+    test(`${variant}: malformed replacement rejects without discarding pending edits`, async (t) => {
+        const h = await harness(t, variant);
+        await h.appState.saveGameDB.modifyPlayerPerkPoints('12');
+        const prior = h.appState.saveGameDB;
+        const bytes = await prior.getDBBytes();
+        await assert.rejects(h.appState.loadSaveGameData(new Uint8Array([1, 2, 3]).buffer), /format/i);
+        assert.equal(h.appState.saveGameDB, prior);
+        assert.equal(h.appState.appState.isSaveFileLoaded, true);
+        assert.deepEqual(await prior.getDBBytes(), bytes);
+    });
+
     test(`${variant}: DB1/DB2 programmatic downloads export raw bytes without write-back`, async (t) => {
         const h = await harness(t, variant);
         // Pending SQL changes must not silently alter the meaning of raw export.
@@ -245,7 +264,11 @@ for (const variant of ['external', 'fallback']) {
                 assert.deepEqual(readFileSync(path.join(h.root, 'original.sav')), returncode
                     ? Buffer.from('original sentinel: never overwrite')
                     : Buffer.concat([Buffer.from('COMPRESSED'), Buffer.from(expected)]));
-                assert.ok(!Object.keys(h.inspect()).some(name => name.endsWith('.edited')));
+                const files = h.inspect();
+                for (const [name, info] of Object.entries(h.fixture.files)) {
+                    if (name !== 'original.sav') assert.deepEqual(files[name], info);
+                }
+                assert.ok(!Object.keys(files).some(name => name.endsWith('.edited')));
                 assert.deepEqual(call.dialogs, []);
                 assert.equal(call.result.success, returncode === 0);
                 assert.equal(call.status[0][0], returncode ? 'error' : 'success');

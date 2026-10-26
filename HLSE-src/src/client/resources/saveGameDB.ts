@@ -2,12 +2,13 @@
 import sqlJSWasmURL from 'sql.js/dist/sql-wasm.wasm?url';
 import initSqlJs, { Database } from 'sql.js';
 
-import { GearItem, LockListItem, LockState, PlayerData, PlayerResource } from '../interfaces';
+import { GearItem, GearStatEdit, LockListItem, LockState, PlayerData, PlayerResource } from '../interfaces';
 import {
     MAX_VANILLA_EXP,
     MAX_VANILLA_TALENT_POINTS,
     levelForExperience,
     progressionWarning,
+    renameWarning,
     validatePlayerNumber
 } from './playerEdits';
 
@@ -239,6 +240,12 @@ export class SaveGameDB {
             }
             if(value !== String(rows[0].values[0][0]))
             {
+                if(key === 'FirstName' || key === 'LastName')
+                {
+                    // DB-only names leave the GVAS/menu copies stale. Do not
+                    // mutate any part of this Apply until a safe rename exists.
+                    throw new Error(renameWarning);
+                }
                 if(key === 'Exp')
                 {
                     validatePlayerNumber(value, key, MAX_VANILLA_EXP);
@@ -316,13 +323,7 @@ export class SaveGameDB {
     }
 
     async modifyPlayerName(playerData: PlayerData): Promise<void> {
-        const db = await this.#gameDB;
-        db.exec(`UPDATE MiscDataDynamic SET DataValue = $firstName WHERE DataName = 'PlayerFirstName'`, {
-            $firstName: playerData.FirstName
-        });
-        db.exec(`UPDATE MiscDataDynamic SET DataValue = $lastName WHERE DataName = 'PlayerLastName'`, {
-            $lastName: playerData.LastName
-        });
+        await this.modifyPlayerData({ FirstName: playerData.FirstName, LastName: playerData.LastName });
     }
 
     async addHouseFlooLocations(): Promise<void> {
@@ -625,28 +626,120 @@ export class SaveGameDB {
         return lockListMap;
     }
 
-    async getPlayerGearInventory(): Promise<GearItem[]> {
+    async getPlayerGearInventory() : Promise<GearItem[]>
+    {
         const db = await this.#gameDB;
-        const inventoryList = db.exec(`SELECT GD.* FROM InventoryDynamic ID `
-            + ` JOIN GearItemsDynamic GD ON GD.GearVariation = ID.Variation`
-            + ` WHERE  ID.CharacterID = 'Player0'`
-            + ` AND ID.HolderID = 'ActorBackpack'`
-            + ` AND ID.ItemID IS NOT NULL`
-            + ` AND ID.Variation IS NOT NULL`);
+        const inventoryList = db.exec('SELECT GD.*, ID.SlotNumber FROM InventoryDynamic ID'
+            + ' JOIN GearItemsDynamic GD ON GD.GearID = ID.ItemID AND GD.GearVariation = ID.Variation'
+            + " WHERE ID.CharacterID = 'Player0' AND ID.HolderID = 'ActorBackpack'"
+            + ' ORDER BY ID.SlotNumber');
         return this.#mapSqlResults<GearItem>(inventoryList[0], []);
     }
 
-    async updateGearItem(item: GearItem): Promise<void> {
+    async updateGearItem(item : GearStatEdit) : Promise<void>
+    {
+        return this.updateGearItems([ item ]);
+    }
+
+    async updateGearItems(items : GearStatEdit[]) : Promise<void>
+    {
+        if(!Array.isArray(items))
+        {
+            throw new Error('Gear edits must be a list of stat patches.');
+        }
         const db = await this.#gameDB;
-        db.exec(
-            `UPDATE GearItemsDynamic`
-            + ` SET OffenseStat = $offenseStat, DefenseStat = $defenseStat`
-            + ` WHERE GearVariation = $gearVariation;`,
+        const updates : { fields : string[]; values : number[]; gearID : string; variation : string }[] = [];
+        const targets = new Set<number>();
+        const statFields = [ 'OffenseStat', 'DefenseStat' ] as const;
+        const allowedFields = [ 'GearID', 'GearVariation', 'SlotNumber', ...statFields ];
+        for(const item of items)
+        {
+            if(!item || typeof item !== 'object' || Array.isArray(item)
+                || Object.keys(item).some((key) => !allowedFields.includes(key)))
             {
-                $gearVariation: item.GearVariation,
-                $offenseStat: item.OffenseStat,
-                $defenseStat: item.DefenseStat
+                throw new Error('Unknown gear field; only offense and defense stats can be edited.');
             }
-        );
+            if(typeof item.GearID !== 'string' || !item.GearID
+                || typeof item.GearVariation !== 'string' || !item.GearVariation
+                || !Number.isInteger(item.SlotNumber) || item.SlotNumber < 0 || item.SlotNumber > 2147483647)
+            {
+                throw new Error('Gear identity or backpack slot is missing or invalid.');
+            }
+            const rows = db.exec('SELECT rowid, GearID, GearVariation, OffenseStat, DefenseStat FROM GearItemsDynamic'
+                + ' WHERE GearID = ? AND GearVariation = ?', [ item.GearID, item.GearVariation ])[0]?.values;
+            if(!rows || rows.length !== 1)
+            {
+                throw new Error('Gear record is missing or ambiguous; no changes applied.');
+            }
+            const [ rowID, gearID, variation, offense, defense ] = rows[0];
+            if(targets.has(Number(rowID)))
+            {
+                throw new Error('A gear item may appear only once in an Apply batch; duplicate target.');
+            }
+            targets.add(Number(rowID));
+            const references = db.exec('SELECT CharacterID, HolderID, SlotNumber, Count FROM InventoryDynamic'
+                + ' WHERE ItemID = ? AND Variation = ?', [ gearID, variation ])[0]?.values;
+            const slotCount = db.exec("SELECT COUNT(*) FROM InventoryDynamic WHERE CharacterID = 'Player0'"
+                + " AND HolderID = 'ActorBackpack' AND SlotNumber = ?", [ item.SlotNumber ])[0]?.values[0]?.[0];
+            if(!references || references.length !== 1 || slotCount !== 1
+                || String(references[0][0]).toLowerCase() !== 'player0'
+                || String(references[0][1]).toLowerCase() !== 'actorbackpack'
+                || references[0][2] !== item.SlotNumber || references[0][3] !== 1)
+            {
+                throw new Error('Gear must have a single, unchanged player backpack reference; shared or moved items are not editable.');
+            }
+            const fields : string[] = [];
+            const values : number[] = [];
+            for(const field of statFields)
+            {
+                if(Object.prototype.hasOwnProperty.call(item, field))
+                {
+                    const value = item[field];
+                    if((typeof value !== 'number' && (typeof value !== 'string' || !/^[0-9]+$/.test(value)))
+                        || !Number.isInteger(Number(value)) || Number(value) < 0 || Number(value) > 2147483647)
+                    {
+                        throw new Error('Gear stats must be whole decimal integers from 0 to 2147483647 (storage limit).');
+                    }
+                    const number = Number(value);
+                    if(number !== (field === 'OffenseStat' ? offense : defense))
+                    {
+                        fields.push(`${ field } = ?`);
+                        values.push(number);
+                    }
+                }
+            }
+            if(fields.length)
+            {
+                updates.push({ fields, values, gearID: String(gearID), variation: String(variation) });
+            }
+        }
+        if(!updates.length)
+        {
+            return;
+        }
+        // Validate every target/value before one transaction; an Apply cannot
+        // commit its first row and leave later rows unmodified after an error.
+        db.run('BEGIN TRANSACTION');
+        try
+        {
+            for(const update of updates)
+            {
+                db.run(
+                    `UPDATE GearItemsDynamic SET ${ update.fields.join(', ')
+                    } WHERE GearID = ? AND GearVariation = ?`,
+                    [ ...update.values, update.gearID, update.variation ]
+                );
+                if(db.getRowsModified() !== 1)
+                {
+                    throw new Error('Gear record changed during Apply; no changes applied.');
+                }
+            }
+            db.run('COMMIT');
+        }
+        catch (error)
+        {
+            db.run('ROLLBACK');
+            throw error;
+        }
     }
 }

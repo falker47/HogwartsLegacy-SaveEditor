@@ -82,11 +82,14 @@ if "%TKDND_PATH%"=="" (
 
 echo [6/7] Building executable...
 if exist dist rmdir /s /q dist
+set PUBLIC_ASSETS=temp\release-assets-%RANDOM%-%RANDOM%
+%PYTHON_CMD% scripts\stage_release_assets.py assets "%PUBLIC_ASSETS%"
+if errorlevel 1 exit /b 1
 %PYTHON_CMD% -m PyInstaller --noconfirm --clean --onefile --windowed ^
     --name "HogwartsLegacy-SaveEditor" ^
     %TKDND_ARGS% ^
     --add-data "src;src" ^
-    --add-data "assets;assets" ^
+    --add-data "%PUBLIC_ASSETS%;assets" ^
     --hidden-import=webview ^
     --hidden-import=webview.platforms.edgechromium ^
     --hidden-import=clr ^
@@ -119,6 +122,12 @@ copy /Y "third_party\hlsavetool-LICENSE.txt" "%RELEASE_DIR%\hlsavetool-LICENSE.t
 mkdir "%RELEASE_DIR%\third_party\hlsavetool"
 copy /Y "third_party\hlsavetool\PROVENANCE.md" "%RELEASE_DIR%\third_party\hlsavetool\" >nul
 copy /Y "third_party\hlsavetool\HL-02A-db2-tail.patch" "%RELEASE_DIR%\third_party\hlsavetool\" >nul
+copy /Y "third_party\hlsavetool\HL-02C-realloc-source.patch" "%RELEASE_DIR%\third_party\hlsavetool\" >nul
+copy /Y "third_party\hlsavetool\HL-02D-output-capacity.patch" "%RELEASE_DIR%\third_party\hlsavetool\" >nul
+copy /Y "third_party\hlsavetool\build-gcc.ps1" "%RELEASE_DIR%\third_party\hlsavetool\" >nul
+copy /Y "docs\release-candidate-acceptance.md" "%RELEASE_DIR%\ACCEPTANCE.md" >nul
+copy /Y "docs\NEXUS_v1.0.7-rc1.md" "%RELEASE_DIR%\NEXUS-RELEASE-DRAFT.md" >nul
+copy /Y "docs\QA-READ-ME-FIRST.txt" "%RELEASE_DIR%\QA-READ-ME-FIRST.txt" >nul
 
 (
 echo HOGWARTS LEGACY SAVE EDITOR
@@ -127,8 +136,8 @@ echo 1. Run HogwartsLegacy-SaveEditor.exe.
 echo 2. Select a save and choose Edit Save File.
 echo 3. Save from the embedded editor to write the edited database back.
 echo.
-echo hlsaves.exe derives from third-party hlsavetool v2.0.1 with the minimal HL-02A DB2 tail fix.
-echo Package 2.0.1-hl02a.1 is installed from the vendored ZIP with archive and executable SHA-256 verification.
+echo hlsaves.exe derives from third-party hlsavetool v2.0.1 with HL-02A, HL-02C and HL-02D fixes.
+echo Package 2.0.1-hl02acd.1 is installed from the vendored ZIP with archive and executable SHA-256 verification.
 echo See third_party\hlsavetool for the patch and reproducible build provenance.
 echo The Oodle DLL oo2core_9_win64.dll is NOT included.
 echo The app first looks for it in supported local game installations.

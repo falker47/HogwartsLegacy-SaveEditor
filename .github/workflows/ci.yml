@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -28,6 +30,8 @@ jobs:
         working-directory: HLSE-src
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -47,6 +51,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -58,19 +64,21 @@ jobs:
       - name: Build release package end to end
         shell: cmd
         run: build_release.bat
-      - name: Verify release contents
-        shell: powershell
+      - name: Verify complete package and embedded assets
+        shell: pwsh
+        env:
+          QA_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          $required = @(
-            "release\HogwartsLegacy-SaveEditor.exe",
-            "release\assets\HLSGE.html",
-            "release\assets\hlsaves.exe",
-            "release\THIRD_PARTY_NOTICES.md",
-            "release\hlsavetool-LICENSE.txt"
-          )
-          foreach ($path in $required) {
-            if (-not (Test-Path $path)) { throw "Missing expected release file: $path" }
-          }
-          if (Test-Path "release\assets\oo2core_9_win64.dll") {
-            throw "Oodle DLL must not be distributed in the release package."
-          }
+          $checkout = (git rev-parse HEAD).Trim()
+          if ($checkout -ne $env:QA_HEAD) { throw 'Wrong checkout for QA artifact' }
+          python scripts/verify_release.py --release release --commit $checkout
+          if ($LASTEXITCODE -ne 0) { throw 'Package validation failed' }
+
+      - name: Upload QA candidate package (never publish)
+        if: github.event_name == 'pull_request' && github.head_ref == 'codex/qa-candidate-20261025'
+        uses: actions/upload-artifact@v4
+        with:
+          name: HogwartsLegacy-SaveEditor-PR26-QA
+          path: release/
+          if-no-files-found: error
+          retention-days: 30

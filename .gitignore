@@ -55,4 +55,5 @@ Backups/
 # Release packages
 *.zip
 !third_party/hlsavetool/HLSaveToolv2.0.1-hl02a.1.zip
+!third_party/hlsavetool/HLSaveToolv2.0.1-hl02acd.1.zip
 release/

@@ -4,7 +4,7 @@ Configuration constants for Hogwarts Legacy Save Editor.
 
 # Application metadata
 APP_NAME = "Hogwarts Legacy Save Editor & Manager"
-VERSION = "1.0.6"
+VERSION = "1.0.7-rc1"
 
 # UI Configuration
 APPEARANCE_MODE = "dark"

@@ -1,2 +1,5 @@
 # Preserve the audited email patch bytes, including required diff/signature whitespace.
 third_party/hlsavetool/HL-02A-db2-tail.patch -text -whitespace
+
+# Preserve LF patch bytes when checked out on Windows; avoid CRLF git-apply warnings.
+third_party/hlsavetool/HL-02D-output-capacity.patch -text

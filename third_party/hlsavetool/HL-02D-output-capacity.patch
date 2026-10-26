@@ -1,0 +1,117 @@
+diff --git a/src/oodle.c b/src/oodle.c
+--- a/src/oodle.c
++++ b/src/oodle.c
+@@ -1,4 +1,5 @@
+ #include "oodle.h"
++#include "chunk_capacity.h"
+ 
+ static const byte signature[] = {
+   0xC1, 0x83, 0x2A, 0x9E
+@@ -70,12 +71,10 @@
+ 
+     UpkOodleSqliteSize upk_sqlite_size = { sqlite_size + SQLITE_UPK_HEADER_ADDED_LENGTH, sqlite_size };
+ 
+-    /**
+-     * Output size should be less than input size,
+-     * just allocate uncompressed size of bytes
+-     */
++    /* Chunk headers and incompressible payloads may exceed the SQLite size. */
+     size_t result_size = 0;
+-    SAFE_ALLOC_SIZE(byte, result_data, sizeof(byte) * data->size);
++    size_t result_capacity = data->size;
++    SAFE_ALLOC_SIZE(byte, result_data, result_capacity);
+ 
+     /**
+      * NOTE: We need `UpkOodleSqliteSize` prepended to the SQLite data,
+@@ -103,7 +102,7 @@
+     byte* tmp_data_value = data->value;
+     size_t chunk_size = OODLE_MAX_BLOCK_SIZE;
+     uint16_t chunk_index = 1;
+-    uint32_t pos = 0;
++    size_t pos = 0;
+     do {
+         /**
+          * NOTE: Loop control must be first
+@@ -124,8 +123,13 @@
+         printf_verbose(verbose, " Scratch max size: %lu bytes", OODLE_MAX_BLOCK_SIZE);
+         printf_verbose(verbose, " Uncompressed size: %llu bytes", chunk_size);
+ 
+-        uint64_t compressed_size_needed = (uint64_t)OodleLZ_Size_Needed(OodleLZ_Compressor_Kraken, chunk_size);
+-        printf_verbose(verbose, " Compressed size required: %llu bytes", compressed_size_needed);
++        intptr_t required_capacity = OodleLZ_Size_Needed(OodleLZ_Compressor_Kraken, chunk_size);
++        if (required_capacity <= 0 || (uintmax_t)required_capacity > SIZE_MAX) {
++            printf_error("Oodle reported invalid compression output capacity");
++            exit(EXIT_FAILURE);
++        }
++        size_t compressed_size_needed = (size_t)required_capacity;
++        printf_verbose(verbose, " Compressed size required: %llu bytes", (uint64_t)compressed_size_needed);
+ 
+         SAFE_ALLOC_SIZE(uint8_t, buffer, sizeof(uint8_t) * chunk_size);
+         memcpy(buffer, tmp_data_value, chunk_size);
+@@ -136,6 +140,17 @@
+             OodleLZ_CompressionLevel_Fast, constoptions, NULL, NULL, NULL, 0
+         );
+         printf_verbose(verbose, " Compressed size: %lu bytes", compressed_bytes);
++        if (compressed_bytes <= 0 || (size_t)compressed_bytes > compressed_size_needed) {
++            printf_error("Oodle returned an invalid compressed block size");
++            exit(EXIT_FAILURE);
++        }
++        size_t payload_size = (size_t)compressed_bytes;
++        if (payload_size > SIZE_MAX - sizeof(upk) ||
++            !ensure_chunk_capacity(&result_data, &result_capacity, result_size,
++                                   sizeof(upk) + payload_size)) {
++            printf_error("Compressed output allocation exceeded capacity");
++            exit(EXIT_FAILURE);
++        }
+ 
+         /**
+          * Wrap the compressed segment into `UpkOodle`
+@@ -147,8 +162,8 @@
+ 
+         memcpy(result_data + result_size, &upk, sizeof(upk));
+         result_size += sizeof(upk);
+-        memcpy(result_data + result_size, output, compressed_bytes);
+-        result_size += compressed_bytes;
++        memcpy(result_data + result_size, output, payload_size);
++        result_size += payload_size;
+ 
+         free(buffer);
+         free(output);
+@@ -157,6 +172,11 @@
+         tmp_data_value += chunk_size;
+     } while (pos < data->size);
+ 
++    if (result_size > UINT32_MAX - UARRAYPROPERTY_ADDED_LENGTH) {
++        printf_error("Compressed data exceeds the property size limit");
++        exit(EXIT_FAILURE);
++    }
++
+     /**
+      * NOTE: UArrayProperty has + `UPROPERTY_ADDED_LENGTH`
+      * bytes added to its length (pointer to embedded TYPE property??)
+diff --git a/headers/chunk_capacity.h b/headers/chunk_capacity.h
+new file mode 100644
+--- /dev/null
++++ b/headers/chunk_capacity.h
+@@ -0,0 +1,21 @@
++#pragma once
++#include <stdbool.h>
++#include <stddef.h>
++#include <stdint.h>
++#include <stdlib.h>
++
++/* Return false for size overflow or allocation failure without modifying
++ * the caller's pointer or capacity on failure. */
++static bool ensure_chunk_capacity(unsigned char** result,
++                                  size_t* capacity,
++                                  size_t used,
++                                  size_t appended) {
++    if (used > SIZE_MAX - appended) return false;
++    const size_t required = used + appended;
++    if (required <= *capacity) return true;
++    unsigned char* grown = (unsigned char*)realloc(*result, required);
++    if (grown == NULL) return false;
++    *result = grown;
++    *capacity = required;
++    return true;
++}

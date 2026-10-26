@@ -1,0 +1,72 @@
+name: Converter native compile (research only)
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/converter-native-compile.yml'
+      - 'third_party/hlsavetool/HL-02A-db2-tail.patch'
+      - 'third_party/hlsavetool/HL-02C-realloc-source.patch'
+      - 'third_party/hlsavetool/HL-02D-output-capacity.patch'
+      - 'tests/native_chunk_capacity.c'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: converter-native-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-msvc:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Fetch pinned public upstream
+        uses: actions/checkout@v4
+        with:
+          repository: gx570s/hlsavetool
+          ref: 1bab30e3f62a23e8687c2d4995356fd48949dd05
+          path: native/upstream
+          persist-credentials: false
+      - name: Verify provenance and apply all native source patches
+        shell: pwsh
+        run: |
+          $root = 'native/upstream'
+          $sha = (git -C $root rev-parse HEAD).Trim()
+          if ($sha -ne '1bab30e3f62a23e8687c2d4995356fd48949dd05') { throw 'Upstream SHA mismatch' }
+          foreach ($name in @('HL-02A-db2-tail.patch', 'HL-02C-realloc-source.patch', 'HL-02D-output-capacity.patch')) {
+            $patch = Join-Path $env:GITHUB_WORKSPACE "third_party/hlsavetool/$name"
+            git -C $root apply --check $patch
+            if ($LASTEXITCODE -ne 0) { throw "Cannot apply $name" }
+            git -C $root apply $patch
+            if ($LASTEXITCODE -ne 0) { throw "Cannot apply $name" }
+          }
+          git -C $root diff --check
+          if ($LASTEXITCODE -ne 0) { throw 'Diff failed whitespace checks' }
+      - name: Compile patched native converter with recorded Windows compiler
+        shell: pwsh
+        run: |
+          cmake --version
+          if ($LASTEXITCODE -ne 0) { throw 'CMake unavailable' }
+          $build = Join-Path $env:RUNNER_TEMP 'hlsaves-native-compile'
+          Copy-Item tests/native_chunk_capacity.c native/upstream/src/native_chunk_capacity.c
+          Add-Content native/upstream/CMakeLists.txt 'add_executable(native_chunk_capacity_test src/native_chunk_capacity.c)'
+          Add-Content native/upstream/CMakeLists.txt 'target_include_directories(native_chunk_capacity_test PRIVATE headers/)'
+          cmake -S native/upstream -B $build -G 'Visual Studio 17 2022' -A x64
+          if ($LASTEXITCODE -ne 0) { throw 'CMake configure failed' }
+          cmake --build $build --config Release
+          if ($LASTEXITCODE -ne 0) { throw 'Native converter compilation failed' }
+          $exe = Join-Path $build 'Release/hlsaves.exe'
+          if (-not (Test-Path $exe)) { throw 'Compiled executable missing' }
+          $capacityTest = Join-Path $build 'Release/native_chunk_capacity_test.exe'
+          if (-not (Test-Path $capacityTest)) { throw 'Compiled native test executable missing' }
+          & $capacityTest
+          if ($LASTEXITCODE -ne 0) { throw 'Native chunk capacity tests failed' }
+          $record = Get-ChildItem (Join-Path $build 'CMakeFiles') -Recurse -Filter CMakeCCompiler.cmake | Select-Object -First 1
+          if ($null -eq $record) { throw 'Compiler version record missing' }
+          Get-Content $record.FullName | Select-String 'CMAKE_C_COMPILER_(ID|VERSION|ARCHITECTURE_ID)'
+          Write-Host "Runner image $env:ImageOS $env:ImageVersion"
+          Write-Host 'Native compilation and chunk capacity unit test succeeded. No Oodle runtime, save round trip or binary promotion was attempted.'
