@@ -39,4 +39,12 @@ Oodle is not included. Use the DLL from your legitimate local installation throu
 
 Local native Oodle checks cover 55 exact round trips, plus 55 with forced moving allocations, and
 25 real-copy Gear publications with DB1/DB2/opaque-byte comparisons. Public CI does not have Oodle.
-These file-level results are not proof of game load, rewards, equip/unequip or save/reload behavior.
+The downloaded Windows RC was also exercised through its manager and embedded editor against an
+isolated copy of a freshly created Steam save (build 20773316, game version 1613387). A glove's Offense
+changed from 71 to 72; the game loaded it, displayed 72, and adjusted equipped totals by exactly 72
+when equipped/removed. All six Gear categories opened without a crash. The value survived a manual
+game save, complete process exit and restart/reload. The game-written DB also retained 72.
+
+This is one profile/item, not universal gameplay certification or a reproduction of the separate
+reported Gear crash. Older raw saves have file-level validation; their dedicated game round trip
+remains untested. Rewards, quest skipping and synchronized rename are outside this candidate's scope.

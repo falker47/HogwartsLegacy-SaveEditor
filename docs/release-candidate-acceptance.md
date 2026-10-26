@@ -18,11 +18,11 @@ were reread. Positive author replies and historical green tests are not fresh ac
 | Request / source | Implementation | Actual verification | Outcome / remaining limit |
 |---|---|---|---|
 | Character-selection rename, Boughten, 4 Oct | PR21 guard integrated; name UI and backend reject partial rename | Frontend metadata-preservation/blocked-write tests | PARTIAL: mitigation only. No multi-file writer; Unicode, index consumers and recovery semantics unproven |
-| Gear stat editing, cerealkiller667, 15 Oct | PR23 composite GearID+GearVariation+slot targeting; stat-only atomic batches | Real manager/generator/publication on 25 copied saves, including duplicate variation; compare every DB1 table/field, DB2 and opaque bytes | FILE-LEVEL PASS; equip/unequip, totals and game persistence pending |
-| Gear-slot crash, arftrolizia, 22 Oct | No speculative patch attributed to this report | Gear frontend tests and copy edits pass; no reporter fixture/reproduction | NOT_REPRODUCED; not claimed fixed |
+| Gear stat editing, cerealkiller667, 15 Oct | PR23 composite GearID+GearVariation+slot targeting; stat-only atomic batches | 25 copied saves with full DB/opaque comparisons; downloaded RC UI edit and actual game load/equip/unequip/save/restart/reload | PASS for the tested stat edit; see bounded live-game evidence below |
+| Gear-slot crash, arftrolizia, 22 Oct | No speculative patch attributed to this report | All six categories, including gloves, opened in the edited live save without a crash; no reporter fixture/reproduction | NOT_REPRODUCED; not claimed fixed |
 | Complete Merlin/Butterflies, slmenzies, 14 Oct | PR24 read-only anonymous probe integrated | Probe schema/catalog tests; no writer | NOT_IMPLEMENTED. Requires controlled solve/reward/collection/save/reload transitions in both DBs |
 | Already-decompressed saves, PR22 real-copy finding | Validated raw staging without converter output assumption | Four older raw saves among 25 real-copy cases; raw-layout and malformed-layout tests | FILE-LEVEL PASS for verified layout; unsupported layouts rejected |
-| Native converter failure, PR25 QA reproduction | HL-02C realloc-source and HL-02D checked output growth promoted with HL-02A | Real Oodle: 11 synthetic cases x5 cycles, repeated with forced-moving allocation; source/DB1/DB2/tail exact | PASS on tested corpus; no universal malformed-save or gameplay certification |
+| Native converter failure, PR25 QA reproduction | HL-02C realloc-source and HL-02D checked output growth promoted with HL-02A | Real Oodle: 11 synthetic cases x5 cycles, repeated with forced-moving allocation; source/DB1/DB2/tail exact; published edited save loads in game | PASS on tested corpus and live save; no universal malformed-save certification |
 | Game Pass detection / edits revert, michaelcarra97, 14 Oct; earlier detection report | Existing WGS detection and copy export preserved | WGS refusal/export/browser regression suites | EXPORT ONLY; WGS container/cloud write-back unsupported |
 | No saves found, Nexus bug list | Existing browser, manual folder override and auto-detect preserved | Discovery/path/browser tests, copied saves | Generic report lacks reproducible details; not closed as fixed |
 | First page does not work, Nexus bug list | Reproduced separate cancelled/invalid-upload defect; fixed empty selection and atomic session replacement with visible error | New regressions fail before fix, pass after; both bridge variants | Concrete upload bug fixed; no assertion it is the original vague Nexus report |
@@ -50,25 +50,50 @@ were reread. Positive author replies and historical green tests are not fresh ac
 - Public CI lacks the proprietary Oodle runtime. Its native helper and compilation results are distinct
   from the local Oodle evidence. Synthetic fixtures and public source only are eligible for upload.
 
-## Remaining game acceptance, executable checklist
+## Observed Windows/game acceptance
+
+Executed on 26 October 2026 using the downloaded PR26 artifact from commit
+`b46f6a169af5e0d0e8c30ea9db812a6c41b832ab`, EXE SHA256
+`d51656f31859e5c013c0040e1165a607d95bb4b9224dc3f774734e86ed6ddab1`.
+The subsequent evidence-only revision changes these release documents, not application code or assets.
+Game: Steam build 20773316, title version 1613387. This is one real profile and one edited item,
+not exhaustive certification of every save, item, platform or existing editor feature.
+
+- Steam Cloud was visibly disabled with user authorization. All 97 pre-session save/backup/index files
+  were copied and hashed before launch. The editor worked on an isolated copy of a newly created manual slot.
+- The downloaded Windows EXE opened its manager, detected the copied profile/save, created a backup,
+  decompressed the save and opened its embedded editor successfully.
+- In the actual UI, `Hand_025_Rare` level 38, backpack slot 9, Offense 71 was changed to 72 using
+  Apply and Download Save. Publication completed normally. Full decoded comparison found exactly that
+  one DB1 field changed; every other DB1 table/field, DB2 and opaque bytes remained unchanged.
+- The reconstructed save loaded in the game. The Crimson Quidditch Gloves tooltip displayed 72.
+  Equipping/unequipping changed total Offense 253 -> 181 -> 253; Defense remained 291.
+  Hands, face, head, neck, back and outfit categories all opened without a crash.
+- A new manual save written by the game retained `OffenseStat = 72`, verified directly in its DB.
+  After a complete process exit and fresh launch, it loaded again with Offense 253 / Defense 291.
+  The glove still displayed 72 and removing it reduced Offense to 181 again. Persistence PASS.
+- After QA, the game was closed and all 97 original files were restored with matching SHA256 hashes
+  and exact original file set. The two extra QA saves and session evidence were preserved privately.
+  Steam Cloud remains disabled. No personal saves, names, screenshots or proprietary DLL are published.
+
+The Windows candidate is available for acceptance with this reduced scope. Full mission readiness
+remains NOT_READY because the rename, completion and quest writers below are absent. The absence of
+those writers is explicit, not concealed by the successful converter/Gear tests.
+
+## Remaining acceptance for excluded or partially verified scope
 
 Use a backed-up disposable ordinary Steam/Epic save profile with Steam Cloud disabled. The user has
 authorized sacrificing local saves and disabling Steam Cloud for QA. Do not test WGS write-back.
 
-1. Load an untouched copied save in the installed game, record baseline backpack Offense/Defense,
-   equipped totals, level, XP and talent counts. Produce one manual baseline save and exit the game.
-2. Open that copy with this exact candidate. Edit one unequipped backpack item's Offense by +1; Apply,
-   Download Save. Reopen in editor and compare exported DB1/DB2; preserve the baseline backup.
-3. Load the edited copy in game; open all six Gear categories including gloves, equip/unequip the chosen
-   item, verify values/totals and absence of crash, manually save, exit and reload. Record whether the
-   stored change survives or is recalculated. Do not label a recalculated value as editor persistence.
-4. Repeat opening/publishing one already-decompressed older save copy. Verify game load/save/reload.
-5. Rename gate: create separate ASCII, accented and non-BMP character-name samples via the game;
+1. Older already-decompressed saves: file-level staging/publication passes on four real copies;
+   a dedicated old-format game load/save/reload remains unexecuted. Do not generalize the modern-save
+   live test to every historical format.
+2. Rename gate: create separate ASCII, accented and non-BMP character-name samples via the game;
    record DB1, metadata and SaveGameList transitions. Identify historical/active index consumers and
    prove crash-recoverable multi-file update before implementing any writer. Current UI stays read-only.
-6. Merlin/Butterfly gate: obtain snapshots before discovery, activation, solve, reward claim and reload;
+3. Merlin/Butterfly gate: obtain snapshots before discovery, activation, solve, reward claim and reload;
    compare DB1, DB2, collection/reward/XP counts per location. Implement only proven transitions,
    including already-completed/no-op cases and repeat-save idempotence. Current candidate has no writer.
 
-Until observed game outcomes are recorded, Gear gameplay and converter game loading remain
-NOT_EXECUTED. The narrowed candidate can be reviewed; it cannot be presented as full mission completion.
+4. Report-specific Gear crash: obtain the reporter's reproducible input and actions. The six-category
+   smoke test above is evidence for that sample, not proof that the original reported crash is fixed.
