@@ -1,9 +1,9 @@
-# 1.0.7-rc1 acceptance — 26 October 2026
+# 1.0.7 acceptance — 26 October 2026
 
 **Release readiness: NOT_READY for the complete requested Nexus scope; accepted for reduced-scope
 publication on 26 October 2026.** The maintainer accepted the candidate and authorized publication
 after the recorded Windows/game QA. PR #26 is the single integration path; archive PR #27 remains
-separate. Version 1.0.7-rc1 and the exclusions below are retained. The artifact's QA-MANIFEST.json
+separate. The published version is 1.0.7; the exclusions below are retained. The artifact's RELEASE-MANIFEST.json
 records its exact source commit, file sizes and SHA256 hashes.
 
 ## Evidence and user requests

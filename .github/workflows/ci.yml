@@ -74,11 +74,11 @@ jobs:
           python scripts/verify_release.py --release release --commit $checkout
           if ($LASTEXITCODE -ne 0) { throw 'Package validation failed' }
 
-      - name: Upload QA candidate package (never publish)
-        if: github.event_name == 'pull_request' && github.head_ref == 'codex/qa-candidate-20261025'
+      - name: Upload verified Windows package
+        if: github.event_name == 'push' || github.head_ref == 'codex/qa-candidate-20261025'
         uses: actions/upload-artifact@v4
         with:
-          name: HogwartsLegacy-SaveEditor-PR26-QA
+          name: HogwartsLegacy-SaveEditor-Windows
           path: release/
           if-no-files-found: error
           retention-days: 30

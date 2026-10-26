@@ -35,7 +35,7 @@ v1.0.6 is a recovery and compatibility release. It restores the Nexus-reported e
 
 [b]The Oodle DLL is not bundled with this project.[/b]
 
-The current v1.0.6 application also contains a hash-pinned fallback download from the third-party new-world-tools/go-oodle GitHub release assets. This is not an official Epic Games distribution channel; using a DLL from your own installed game is preferable when available.
+The current application also contains a hash-pinned fallback download from the third-party new-world-tools/go-oodle GitHub release assets. This is not an official Epic Games distribution channel; using a DLL from your own installed game is preferable when available.
 
 [line]
 

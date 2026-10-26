@@ -1,11 +1,13 @@
-HOGWARTS LEGACY SAVE EDITOR 1.0.7-rc1 -- QA CANDIDATE
+HOGWARTS LEGACY SAVE EDITOR 1.0.7
 
 Reduced-scope publication accepted by the maintainer on 26 October 2026.
-Read ACCEPTANCE.md for exact evidence and limits. This remains version 1.0.7-rc1.
+Read ACCEPTANCE.md for exact evidence and limits. This is version 1.0.7.
 Character rename is disabled. Merlin Trials / Butterfly completion is not implemented.
 Gear edits target stored backpack Offense/Defense; one glove edit passed game save/restart/reload.
 The native converter includes HL-02A, HL-02C and HL-02D and has passed local Oodle round trips.
 Only use disposable copies and independent backups. No WGS write-back or cloud synchronization.
-Oodle is proprietary and not included: select your own legitimate local runtime when requested.
-QA-MANIFEST.json identifies the exact source commit and SHA256 of every public file.
+Oodle setup is automatic from common Steam/Epic folders. If missing, choose Yes to download
+with hash verification or No to search your PC. Manual selection is only the final fallback.
+The DLL is not bundled; the optional download source is third-party GitHub.
+RELEASE-MANIFEST.json identifies the exact source commit and SHA256 of every public file.
 Unsupported features above are not promised by this compatibility and reliability update.

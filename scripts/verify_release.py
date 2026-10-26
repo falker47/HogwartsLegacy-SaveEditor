@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import runpy
 from pathlib import Path
 from PyInstaller.archive.readers import CArchiveReader
 
@@ -11,8 +12,8 @@ ASSETS = {'HLSGE.html', 'hlsaves.exe', 'editor_bridge.js'}
 
 def verify(root, commit):
     required = {'HogwartsLegacy-SaveEditor.exe', 'LICENSE', 'CREDITS.md', 'THIRD_PARTY_NOTICES.md',
-                'hlsavetool-LICENSE.txt', 'README.txt', 'QA-READ-ME-FIRST.txt',
-                'ACCEPTANCE.md', 'NEXUS-RELEASE-DRAFT.md'} | {'assets/' + n for n in ASSETS}
+                'hlsavetool-LICENSE.txt', 'README.txt', 'READ-ME-FIRST.txt',
+                'ACCEPTANCE.md', 'RELEASE-NOTES.md'} | {'assets/' + n for n in ASSETS}
     files = {p.relative_to(root).as_posix(): p for p in root.rglob('*') if p.is_file()}
     if not required <= files.keys():
         raise ValueError(f'Missing public files: {sorted(required - files.keys())}')
@@ -34,10 +35,10 @@ def verify(root, commit):
     for name in ASSETS:
         if archive.extract(embedded['assets/' + name]) != files['assets/' + name].read_bytes():
             raise ValueError(f'Embedded/external asset mismatch: {name}')
-    manifest = {'commit': commit, 'qa_only': True, 'embedded_assets_verified': True,
+    manifest = {'commit': commit, 'version': runpy.run_path(str(Path(__file__).resolve().parents[1] / 'src/config.py'))['VERSION'], 'embedded_assets_verified': True,
                 'files': {n: {'size': p.stat().st_size, 'sha256': hashlib.sha256(p.read_bytes()).hexdigest()}
-                          for n, p in sorted(files.items()) if n != 'QA-MANIFEST.json'}}
-    (root / 'QA-MANIFEST.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+                          for n, p in sorted(files.items()) if n != 'RELEASE-MANIFEST.json'}}
+    (root / 'RELEASE-MANIFEST.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
     print(json.dumps({'commit': commit, 'files': len(manifest['files']), 'embedded_assets_verified': True}))
 
 

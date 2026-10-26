@@ -1,4 +1,4 @@
-> **1.0.7-rc1 QA candidate:** see [acceptance and limits](docs/release-candidate-acceptance.md). Character rename and Merlin/Butterfly completion remain unavailable. This is not an accepted Nexus release.
+> **1.0.7:** Gear stat, save compatibility and native converter fixes. See [acceptance and limits](docs/release-candidate-acceptance.md). Character rename and Merlin/Butterfly completion remain unavailable. Oodle auto-setup and the optional verified download are unchanged.
 
 # Hogwarts Legacy Save Editor & Manager
 
@@ -6,7 +6,7 @@
 
 A Windows desktop manager that connects three pieces of the Hogwarts Legacy save-editing workflow: save discovery and backups, `hlsaves` compression/decompression, and the HLSGE web editor inside a local PyWebView window.
 
-Current v1.0.6 source adds guarded progression/resource editing, the in-game-style save
+The source adds guarded progression/resource editing, the in-game-style save
 browser, verified Wand Handles/Revelio actions, and safe Game Pass export. Microsoft
 Store/Game Pass WGS containers are never edited in place: **Export Game Pass Saves**
 creates ordinary editable/migration copies and never writes changes back to WGS or Xbox
@@ -19,7 +19,7 @@ different names. This safety change prevents new partial renames; it does not re
 existing mismatches. See the [rename investigation and remaining gates](docs/character-rename.md).
 Custom DB Upload is a lower-level database replacement and is not a supported rename workflow.
 
-**Latest packaged release:** v1.0.6
+**Latest packaged release:** v1.0.7
 
 ## What this project adds
 
@@ -70,7 +70,7 @@ The desktop layer is Python + CustomTkinter. The embedded editor source lives un
 
 The application first checks common Hogwarts Legacy Steam/Epic locations. If those checks fail, the user may explicitly start a broader local search or select the DLL manually.
 
-The current v1.0.6 code also contains a hash-pinned fallback download from the third-party `new-world-tools/go-oodle` release assets. That source is **not an official Epic Games distribution channel**, and the DLL itself is not covered by this repository's MIT license. Prefer using the copy from your own installed game when available.
+The current code also contains a hash-pinned fallback download from the third-party `new-world-tools/go-oodle` release assets. That source is **not an official Epic Games distribution channel**, and the DLL itself is not covered by this repository's MIT license. Prefer using the copy from your own installed game when available.
 
 The DLL is intentionally excluded from this repository and from release packaging.
 

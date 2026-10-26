@@ -126,8 +126,8 @@ copy /Y "third_party\hlsavetool\HL-02C-realloc-source.patch" "%RELEASE_DIR%\thir
 copy /Y "third_party\hlsavetool\HL-02D-output-capacity.patch" "%RELEASE_DIR%\third_party\hlsavetool\" >nul
 copy /Y "third_party\hlsavetool\build-gcc.ps1" "%RELEASE_DIR%\third_party\hlsavetool\" >nul
 copy /Y "docs\release-candidate-acceptance.md" "%RELEASE_DIR%\ACCEPTANCE.md" >nul
-copy /Y "docs\NEXUS_v1.0.7-rc1.md" "%RELEASE_DIR%\NEXUS-RELEASE-DRAFT.md" >nul
-copy /Y "docs\QA-READ-ME-FIRST.txt" "%RELEASE_DIR%\QA-READ-ME-FIRST.txt" >nul
+copy /Y "docs\NEXUS_v1.0.7.md" "%RELEASE_DIR%\RELEASE-NOTES.md" >nul
+copy /Y "docs\READ-ME-FIRST.txt" "%RELEASE_DIR%\READ-ME-FIRST.txt" >nul
 
 (
 echo HOGWARTS LEGACY SAVE EDITOR
@@ -141,7 +141,8 @@ echo Package 2.0.1-hl02acd.1 is installed from the vendored ZIP with archive and
 echo See third_party\hlsavetool for the patch and reproducible build provenance.
 echo The Oodle DLL oo2core_9_win64.dll is NOT included.
 echo The app first looks for it in supported local game installations.
-echo If needed, choose the explicit search/manual-selection path in the app.
+echo If missing, choose Yes to download with hash verification or No to search your PC.
+echo Manual selection is only the final fallback; the download source is third-party GitHub.
 echo.
 echo Back up important saves before editing.
 echo See THIRD_PARTY_NOTICES.md for third-party provenance and license boundaries.
